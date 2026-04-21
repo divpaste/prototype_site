@@ -1,724 +1,1226 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ARCNC — AR Maintenance Platform</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#070b12;--surface:#0c1220;--panel:#111827;--card:#141e2e;
+  --border:#1a2840;--border2:#243550;
+  --accent:#3b82f6;--accent-glow:rgba(59,130,246,0.25);
+  --cyan:#06b6d4;--cyan-glow:rgba(6,182,212,0.2);
+  --ok:#10b981;--warn:#f59e0b;--crit:#ef4444;
+  --text:#e2eaf5;--muted:#4a6080;--hint:#2a3a55;
+  --font:'Syne',sans-serif;--mono:'IBM Plex Mono',monospace;
+}
+html,body{width:100%;height:100%;background:var(--bg);font-family:var(--font);color:var(--text);overflow:hidden}
 
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #f5f5f3;
-      color: #1a1a18;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: flex-start;
-      padding: 32px 16px 48px;
-    }
+/* ── SCREENS ── */
+.screen{position:absolute;inset:0;display:none;flex-direction:column;overflow:hidden}
+.screen.active{display:flex}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.screen.active{animation:fadeIn 0.3s ease}
 
-    /* ── Page header ── */
-    .page-header {
-      text-align: center;
-      margin-bottom: 28px;
-    }
-    .page-header h1 {
-      font-size: 20px;
-      font-weight: 500;
-      color: #1a1a18;
-    }
-    .page-header p {
-      font-size: 13px;
-      color: #73726c;
-      margin-top: 4px;
-    }
+/* ── NOISE TEXTURE ── */
+.noise{position:absolute;inset:0;pointer-events:none;z-index:0;opacity:0.03;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
 
-    /* ── Main layout ── */
-    .proto-wrap {
-      display: flex;
-      gap: 28px;
-      align-items: flex-start;
-      flex-wrap: wrap;
-      justify-content: center;
-      width: 100%;
-      max-width: 860px;
-    }
+/* ── SHARED TOP BAR ── */
+.topbar{display:flex;align-items:center;padding:0 24px;height:54px;background:rgba(12,18,32,0.95);border-bottom:1px solid var(--border);flex-shrink:0;position:relative;z-index:10;gap:16px;backdrop-filter:blur(8px)}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-hex{width:30px;height:30px;background:var(--accent);clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);display:flex;align-items:center;justify-content:center;position:relative}
+.logo-hex::after{content:'';position:absolute;width:10px;height:10px;background:#fff;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%)}
+.logo-name{font-size:17px;font-weight:800;letter-spacing:4px;color:#fff}
+.logo-tag{font-size:9px;letter-spacing:3px;color:var(--muted);margin-top:1px}
+.topbar-nav{display:flex;gap:2px;margin-left:16px}
+.tn{padding:7px 14px;font-size:12px;letter-spacing:1.5px;color:var(--muted);border-radius:5px;cursor:pointer;transition:all 0.2s;border:1px solid transparent}
+.tn:hover{color:var(--text)}
+.tn.active{color:var(--accent);background:var(--accent-glow);border-color:rgba(59,130,246,0.2)}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:14px}
+.live-badge{display:flex;align-items:center;gap:5px;font-size:10px;letter-spacing:2px;color:var(--ok)}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--ok);animation:livepulse 1.5s infinite}
+@keyframes livepulse{0%,100%{opacity:1;box-shadow:0 0 0 0 var(--ok)}50%{opacity:0.7;box-shadow:0 0 0 3px transparent}}
+.avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--cyan));display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff}
+.user-name{font-size:12px;letter-spacing:1px;color:var(--muted)}
 
-    /* ── Phone frame ── */
-    .phone-outer { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+/* ══════════════════════════════
+   1. LOGIN / SIGNUP
+══════════════════════════════ */
+#loginScreen{align-items:center;justify-content:center;background:var(--bg)}
+.login-bg{position:absolute;inset:0;overflow:hidden}
+.login-bg-circle{position:absolute;border-radius:50%;filter:blur(60px);animation:orb 8s ease-in-out infinite}
+.lbc1{width:500px;height:500px;background:rgba(59,130,246,0.07);top:-100px;left:-100px}
+.lbc2{width:400px;height:400px;background:rgba(6,182,212,0.05);bottom:-80px;right:-80px;animation-delay:-4s}
+.login-grid{position:absolute;inset:0;background-image:linear-gradient(var(--hint) 1px,transparent 1px),linear-gradient(90deg,var(--hint) 1px,transparent 1px);background-size:44px 44px;opacity:0.3}
+@keyframes orb{0%,100%{transform:scale(1) translate(0,0)}50%{transform:scale(1.1) translate(20px,15px)}}
+.login-wrap{position:relative;z-index:2;display:flex;gap:0;box-shadow:0 40px 80px rgba(0,0,0,0.6);border-radius:16px;overflow:hidden;border:1px solid var(--border2)}
+.login-left{width:320px;background:linear-gradient(160deg,#0f1e38 0%,#070b12 100%);padding:48px 40px;display:flex;flex-direction:column;gap:0;border-right:1px solid var(--border)}
+.login-hero{flex:1;display:flex;flex-direction:column;justify-content:center}
+.login-hero-title{font-size:32px;font-weight:800;line-height:1.1;color:#fff;margin-bottom:12px}
+.login-hero-sub{font-size:13px;color:var(--muted);line-height:1.6}
+.feature-list{margin-top:28px;display:flex;flex-direction:column;gap:10px}
+.feature-item{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted)}
+.fi-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);flex-shrink:0}
+.login-right{width:380px;background:var(--panel);padding:48px 40px}
+.tab-switch{display:flex;gap:0;margin-bottom:32px;background:var(--bg);border-radius:8px;padding:3px;border:1px solid var(--border)}
+.tab-btn{flex:1;padding:8px;text-align:center;font-size:12px;letter-spacing:2px;font-family:var(--font);font-weight:600;color:var(--muted);border:none;background:transparent;cursor:pointer;border-radius:6px;transition:all 0.2s}
+.tab-btn.active{background:var(--accent);color:#fff}
+.field{margin-bottom:18px}
+.field-label{font-size:10px;letter-spacing:2.5px;color:var(--muted);text-transform:uppercase;margin-bottom:7px;display:block}
+.field-input{width:100%;background:var(--bg);border:1px solid var(--border2);border-radius:7px;padding:11px 14px;font-family:var(--font);font-size:13px;color:var(--text);outline:none;transition:border-color 0.2s}
+.field-input:focus{border-color:var(--accent)}
+.field-input.error{border-color:var(--crit)}
+.error-msg{font-size:11px;color:var(--crit);margin-top:5px;display:none}
+.auth-btn{width:100%;background:var(--accent);border:none;border-radius:8px;padding:13px;font-family:var(--font);font-size:14px;font-weight:700;letter-spacing:2px;color:#fff;cursor:pointer;transition:all 0.25s;position:relative;overflow:hidden;margin-top:4px}
+.auth-btn:hover{background:#2563eb;transform:translateY(-1px);box-shadow:0 8px 24px rgba(59,130,246,0.3)}
+.auth-btn:active{transform:translateY(0)}
+.auth-btn .btn-shimmer{position:absolute;top:0;left:-100%;width:60%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.15),transparent);animation:shimmer 2s ease infinite}
+@keyframes shimmer{to{left:150%}}
+.divider{display:flex;align-items:center;gap:12px;margin:20px 0;color:var(--muted);font-size:10px;letter-spacing:2px}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border)}
+.social-btn{width:100%;background:transparent;border:1px solid var(--border2);border-radius:8px;padding:11px;font-family:var(--font);font-size:12px;letter-spacing:1px;color:var(--muted);cursor:pointer;transition:all 0.2s}
+.social-btn:hover{border-color:var(--border);color:var(--text)}
+.scan-line{position:absolute;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--cyan),transparent);opacity:0.5;animation:scanDown 3s linear infinite}
+@keyframes scanDown{0%{top:0%;opacity:0}5%{opacity:1}95%{opacity:1}100%{top:100%;opacity:0}}
 
-    .phone-frame {
-      width: 240px;
-      border: 2px solid #b4b2a9;
-      border-radius: 32px;
-      background: #ffffff;
-      overflow: hidden;
-    }
+/* ══════════════════════════════
+   2. DASHBOARD
+══════════════════════════════ */
+#dashScreen{background:var(--bg)}
+.dash-body{flex:1;display:flex;overflow:hidden}
+.sidebar{width:220px;background:var(--surface);border-right:1px solid var(--border);padding:20px 0;display:flex;flex-direction:column;flex-shrink:0}
+.sb-section{font-size:9px;letter-spacing:3px;color:var(--hint);padding:14px 20px 6px;text-transform:uppercase}
+.sb-item{display:flex;align-items:center;gap:10px;padding:9px 20px;font-size:13px;letter-spacing:0.5px;color:var(--muted);cursor:pointer;transition:all 0.2s;border-left:2px solid transparent;position:relative}
+.sb-item:hover{color:var(--text);background:rgba(59,130,246,0.04)}
+.sb-item.active{color:var(--accent);background:rgba(59,130,246,0.07);border-left-color:var(--accent)}
+.sb-ico{width:16px;height:16px;flex-shrink:0}
+.sb-badge{margin-left:auto;background:var(--crit);color:#fff;font-size:9px;padding:2px 6px;border-radius:10px;font-weight:700}
+.dash-main{flex:1;overflow-y:auto;padding:28px 28px}
+.pg-header{margin-bottom:24px}
+.pg-title{font-size:26px;font-weight:800;letter-spacing:1px;color:#fff}
+.pg-sub{font-size:12px;letter-spacing:1px;color:var(--muted);margin-top:4px}
+/* HERO SCAN BUTTON */
+.scan-hero{background:linear-gradient(135deg,#0d1e38 0%,#0a1628 100%);border:1px solid rgba(59,130,246,0.3);border-radius:16px;padding:32px 32px;display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;cursor:pointer;transition:all 0.3s;position:relative;overflow:hidden}
+.scan-hero::before{content:'';position:absolute;inset:-1px;background:linear-gradient(135deg,rgba(59,130,246,0.15),transparent,rgba(6,182,212,0.1));border-radius:16px;opacity:0;transition:opacity 0.3s}
+.scan-hero:hover::before{opacity:1}
+.scan-hero:hover{transform:translateY(-2px);box-shadow:0 20px 48px rgba(59,130,246,0.2);border-color:rgba(59,130,246,0.5)}
+.sh-left .sh-tag{font-size:10px;letter-spacing:3px;color:var(--cyan);text-transform:uppercase;margin-bottom:8px}
+.sh-left .sh-title{font-size:28px;font-weight:800;color:#fff;margin-bottom:6px}
+.sh-left .sh-desc{font-size:13px;color:var(--muted);max-width:340px;line-height:1.5}
+.sh-btn{background:var(--accent);border:none;padding:14px 28px;border-radius:10px;font-family:var(--font);font-size:14px;font-weight:700;letter-spacing:2px;color:#fff;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:8px;flex-shrink:0}
+.sh-btn:hover{background:#2563eb;box-shadow:0 8px 24px rgba(59,130,246,0.4)}
+.sh-icon{width:80px;height:80px;position:relative;flex-shrink:0;margin:0 24px}
+.sh-ring{position:absolute;border-radius:50%;border:1px solid;animation:ringpulse 2s ease-in-out infinite}
+.ring1{inset:0;border-color:rgba(59,130,246,0.4)}
+.ring2{inset:-8px;border-color:rgba(59,130,246,0.2);animation-delay:0.3s}
+.ring3{inset:-16px;border-color:rgba(59,130,246,0.1);animation-delay:0.6s}
+@keyframes ringpulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+.sh-center{width:40px;height:40px;background:var(--accent);border-radius:50%;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center}
+/* QUICK STATS */
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px 20px;cursor:pointer;transition:all 0.2s}
+.stat-card:hover{border-color:var(--border2);transform:translateY(-1px)}
+.sc-label{font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:10px}
+.sc-value{font-size:28px;font-weight:800;color:#fff;font-family:var(--mono);line-height:1}
+.sc-unit{font-size:12px;color:var(--muted);margin-left:3px;font-family:var(--font)}
+.sc-sub{font-size:11px;margin-top:6px}
+/* RECENT DIAGNOSES */
+.section-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.sec-title{font-size:13px;font-weight:700;letter-spacing:2px;color:var(--text);text-transform:uppercase}
+.sec-link{font-size:11px;letter-spacing:1px;color:var(--accent);cursor:pointer}
+.diag-list{display:flex;flex-direction:column;gap:8px;margin-bottom:24px}
+.diag-item{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:all 0.2s}
+.diag-item:hover{border-color:var(--border2);background:var(--panel)}
+.di-icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px}
+.di-info{flex:1}
+.di-machine{font-size:13px;font-weight:600;color:#fff;margin-bottom:2px}
+.di-issue{font-size:11px;color:var(--muted)}
+.di-time{font-size:10px;font-family:var(--mono);color:var(--hint)}
+.di-status{flex-shrink:0}
+.status-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:600;letter-spacing:1px}
+.pill-ok{background:rgba(16,185,129,0.1);color:var(--ok);border:1px solid rgba(16,185,129,0.2)}
+.pill-warn{background:rgba(245,158,11,0.1);color:var(--warn);border:1px solid rgba(245,158,11,0.2)}
+.pill-crit{background:rgba(239,68,68,0.1);color:var(--crit);border:1px solid rgba(239,68,68,0.2)}
+.pill-dot{width:4px;height:4px;border-radius:50%;background:currentColor}
+/* EXPERT SUPPORT */
+.support-card{background:linear-gradient(135deg,#0d1e38,#070f1f);border:1px solid rgba(6,182,212,0.2);border-radius:14px;padding:24px;display:flex;align-items:center;gap:20px}
+.expert-avatar-group{display:flex;flex-shrink:0}
+.ea{width:38px;height:38px;border-radius:50%;border:2px solid var(--bg);margin-left:-10px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff}
+.ea:first-child{margin-left:0}
+.support-text{flex:1}
+.st-title{font-size:15px;font-weight:700;color:#fff;margin-bottom:4px}
+.st-desc{font-size:12px;color:var(--muted)}
+.connect-btn{background:transparent;border:1px solid var(--cyan);border-radius:8px;padding:10px 20px;font-family:var(--font);font-size:12px;letter-spacing:2px;font-weight:700;color:var(--cyan);cursor:pointer;transition:all 0.2s;flex-shrink:0}
+.connect-btn:hover{background:var(--cyan-glow)}
 
-    .phone-notch {
-      height: 22px;
-      background: #f1efe8;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-bottom: 0.5px solid #d3d1c7;
-    }
-    .notch-dot {
-      width: 44px; height: 6px;
-      background: #b4b2a9;
-      border-radius: 3px;
-    }
+/* ══════════════════════════════
+   3. AR VIEW / CAMERA
+══════════════════════════════ */
+#arScreen{background:#000}
+.ar-wrap{flex:1;position:relative;overflow:hidden}
+#arCanvas{display:block;position:absolute;inset:0;width:100%;height:100%}
+.ar-overlay{position:absolute;inset:0;pointer-events:none}
+/* HUD corners */
+.hud-corner{position:absolute;width:22px;height:22px;border-color:var(--cyan);border-style:solid}
+.hc-tl{top:20px;left:20px;border-width:2px 0 0 2px}
+.hc-tr{top:20px;right:20px;border-width:2px 2px 0 0}
+.hc-bl{bottom:20px;left:20px;border-width:0 0 2px 2px}
+.hc-br{bottom:20px;right:20px;border-width:0 2px 2px 0}
+.hud-tl-info{position:absolute;top:20px;left:52px}
+.hud-tr-info{position:absolute;top:20px;right:52px;text-align:right}
+.hud-label{font-family:var(--mono);font-size:9px;letter-spacing:3px;color:var(--cyan);opacity:0.7;text-transform:uppercase;margin-bottom:3px}
+.hud-val{font-family:var(--mono);font-size:16px;font-weight:500;color:#fff;letter-spacing:1px}
+.hud-sub{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:2px;margin-top:2px}
+.scan-target{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:220px;height:160px}
+.st-corner{position:absolute;width:18px;height:18px;border-color:var(--cyan);border-style:solid;animation:stpulse 1.8s ease-in-out infinite}
+@keyframes stpulse{0%,100%{opacity:0.5}50%{opacity:1}}
+.st-corner.tl{top:0;left:0;border-width:2px 0 0 2px}
+.st-corner.tr{top:0;right:0;border-width:2px 2px 0 0}
+.st-corner.bl{bottom:0;left:0;border-width:0 0 2px 2px}
+.st-corner.br{bottom:0;right:0;border-width:0 2px 2px 0}
+.scan-sweep{position:absolute;left:4px;right:4px;height:1.5px;background:linear-gradient(90deg,transparent,var(--cyan),transparent);animation:sweep 2.2s linear infinite;opacity:0.6}
+@keyframes sweep{0%{top:8%}100%{top:88%}}
+.ar-status-bar{position:absolute;bottom:88px;left:50%;transform:translateX(-50%);background:rgba(10,14,22,0.85);border:1px solid var(--border2);border-radius:30px;padding:7px 20px;display:flex;align-items:center;gap:10px;font-size:11px;letter-spacing:1px;backdrop-filter:blur(8px)}
+.ar-status-dot{width:6px;height:6px;border-radius:50%;background:var(--cyan);animation:livepulse 1.2s infinite}
+.ar-bottom-bar{position:absolute;bottom:0;left:0;right:0;padding:16px 24px;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(transparent,rgba(7,11,18,0.95));pointer-events:all}
+.ar-back-btn{display:flex;align-items:center;gap:6px;font-size:12px;letter-spacing:1px;color:var(--muted);cursor:pointer;background:rgba(12,18,32,0.8);border:1px solid var(--border);border-radius:8px;padding:8px 14px;transition:all 0.2s}
+.ar-back-btn:hover{color:var(--text);border-color:var(--border2)}
+.ar-process-btn{background:var(--accent);border:none;border-radius:10px;padding:12px 28px;font-family:var(--font);font-size:13px;font-weight:700;letter-spacing:2px;color:#fff;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:8px}
+.ar-process-btn:hover{background:#2563eb;box-shadow:0 8px 20px rgba(59,130,246,0.35)}
+/* PROCESSING OVERLAY */
+.processing-overlay{position:absolute;inset:0;background:rgba(7,11,18,0.85);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;backdrop-filter:blur(4px);z-index:20;animation:fadeIn 0.3s ease}
+.proc-ring{width:64px;height:64px;border-radius:50%;border:2px solid var(--border2);border-top-color:var(--accent);animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.proc-text{font-size:13px;letter-spacing:2px;color:var(--muted);font-family:var(--mono)}
+.proc-steps{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.proc-step{font-size:11px;font-family:var(--mono);color:var(--hint);display:flex;align-items:center;gap:8px}
+.proc-step.done{color:var(--ok)}
+.proc-step.active{color:var(--cyan)}
 
-    .phone-screen { height: 440px; overflow: hidden; position: relative; }
+/* ══════════════════════════════
+   4. DIAGNOSIS
+══════════════════════════════ */
+#diagScreen{background:var(--bg)}
+.diag-body{flex:1;display:grid;grid-template-columns:1fr 320px;overflow:hidden}
+.diag-left{position:relative;overflow:hidden}
+#diagCanvas{display:block;width:100%;height:100%}
+.diag-overlay{position:absolute;inset:0;pointer-events:none}
+.diag-tag{position:absolute;background:rgba(10,14,22,0.9);border:1px solid;border-radius:8px;padding:8px 12px;font-family:var(--mono);backdrop-filter:blur(4px);cursor:pointer;pointer-events:all;transition:all 0.2s}
+.diag-tag:hover{transform:scale(1.02)}
+.dt-label{font-size:10px;letter-spacing:2px;margin-bottom:3px;text-transform:uppercase}
+.dt-val{font-size:14px;font-weight:500}
+.tag-ok{border-color:rgba(16,185,129,0.4)}
+.tag-ok .dt-label{color:var(--ok)}
+.tag-ok .dt-val{color:#fff}
+.tag-warn{border-color:rgba(245,158,11,0.4)}
+.tag-warn .dt-label{color:var(--warn)}
+.tag-warn .dt-val{color:var(--warn)}
+.tag-crit{border-color:rgba(239,68,68,0.5)}
+.tag-crit .dt-label{color:var(--crit)}
+.tag-crit .dt-val{color:var(--crit)}
+.diag-right{background:var(--surface);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+.dr-header{padding:20px 20px 0;border-bottom:1px solid var(--border)}
+.dr-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:20px;font-size:10px;font-weight:600;letter-spacing:1.5px;color:var(--crit);margin-bottom:10px}
+.dr-title{font-size:18px;font-weight:800;color:#fff;margin-bottom:4px}
+.dr-machine{font-size:11px;letter-spacing:1px;color:var(--muted);margin-bottom:16px}
+.dr-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin:0 -20px;padding:0 20px}
+.dr-tab{padding:10px 14px;font-size:11px;letter-spacing:1.5px;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s;text-transform:uppercase}
+.dr-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.dr-content{padding:20px;flex:1}
+/* STEPS */
+.step-list{display:flex;flex-direction:column;gap:0}
+.step-item{display:flex;gap:12px;padding-bottom:16px;position:relative}
+.step-item:not(:last-child)::after{content:'';position:absolute;left:14px;top:28px;bottom:0;width:1px;background:var(--border)}
+.step-num{width:28px;height:28px;border-radius:50%;background:var(--panel);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--muted);flex-shrink:0;position:relative;z-index:1}
+.step-num.done{background:var(--ok);border-color:var(--ok);color:#fff}
+.step-num.active{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 0 12px rgba(59,130,246,0.5)}
+.step-body{flex:1;padding-top:4px}
+.step-title{font-size:13px;font-weight:600;color:#fff;margin-bottom:3px}
+.step-desc{font-size:11px;color:var(--muted);line-height:1.5}
+.step-tool{display:inline-flex;align-items:center;gap:4px;margin-top:5px;background:var(--panel);border:1px solid var(--border);border-radius:5px;padding:3px 8px;font-size:10px;letter-spacing:1px;color:var(--cyan)}
+/* PATH CHOOSER */
+.path-chooser{padding:20px;border-top:1px solid var(--border)}
+.pc-label{font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:12px}
+.path-btns{display:flex;flex-direction:column;gap:8px}
+.path-btn{padding:12px 16px;border-radius:10px;cursor:pointer;transition:all 0.2s;text-align:left;font-family:var(--font)}
+.path-self{background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.2);color:var(--ok)}
+.path-self:hover{background:rgba(16,185,129,0.12);border-color:rgba(16,185,129,0.4)}
+.path-expert{background:rgba(59,130,246,0.07);border:1px solid rgba(59,130,246,0.2);color:var(--accent)}
+.path-expert:hover{background:rgba(59,130,246,0.12);border-color:rgba(59,130,246,0.4)}
+.pb-title{font-size:13px;font-weight:700;margin-bottom:2px}
+.pb-desc{font-size:11px;opacity:0.7}
 
-    .screen {
-      height: 440px;
-      display: none;
-      flex-direction: column;
-      background: #ffffff;
-    }
-    .screen.active { display: flex; }
+/* ══════════════════════════════
+   5. SELF-FIX
+══════════════════════════════ */
+#fixScreen{background:var(--bg)}
+.fix-body{flex:1;overflow-y:auto;padding:28px;max-width:720px;margin:0 auto;width:100%}
+.fix-header{margin-bottom:28px}
+.fix-title{font-size:24px;font-weight:800;color:#fff;margin-bottom:4px}
+.fix-sub{font-size:12px;color:var(--muted);letter-spacing:1px}
+.fix-progress{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:24px}
+.fp-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.fp-title{font-size:11px;letter-spacing:2px;color:var(--muted);text-transform:uppercase}
+.fp-count{font-size:13px;font-weight:700;color:#fff;font-family:var(--mono)}
+.progress-bar-bg{height:4px;background:var(--border);border-radius:4px;overflow:hidden}
+.progress-bar{height:100%;background:var(--accent);border-radius:4px;transition:width 0.5s ease}
+.fix-step-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:24px;margin-bottom:16px;position:relative;overflow:hidden}
+.fsc-num{position:absolute;top:-8px;right:16px;font-size:64px;font-weight:800;color:var(--border);font-family:var(--mono);line-height:1}
+.fsc-tag{font-size:10px;letter-spacing:2px;color:var(--cyan);text-transform:uppercase;margin-bottom:8px}
+.fsc-title{font-size:18px;font-weight:700;color:#fff;margin-bottom:8px}
+.fsc-desc{font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:14px}
+.fsc-tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.tool-chip{display:flex;align-items:center;gap:5px;background:var(--panel);border:1px solid var(--border2);border-radius:6px;padding:5px 10px;font-size:11px;color:var(--text)}
+.fsc-check{display:flex;align-items:center;gap:8px;padding:10px 14px;background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.15);border-radius:8px;cursor:pointer;transition:all 0.2s}
+.fsc-check:hover{background:rgba(16,185,129,0.09)}
+.fsc-check input[type=checkbox]{accent-color:var(--ok);width:16px;height:16px}
+.fsc-check label{font-size:13px;color:var(--muted);cursor:pointer}
+.fix-nav{display:flex;justify-content:space-between;gap:12px;margin-top:20px}
+.fn-btn{padding:12px 24px;border-radius:9px;font-family:var(--font);font-size:13px;font-weight:600;letter-spacing:1px;cursor:pointer;transition:all 0.2s}
+.fn-prev{background:transparent;border:1px solid var(--border);color:var(--muted)}
+.fn-prev:hover{border-color:var(--border2);color:var(--text)}
+.fn-next{background:var(--accent);border:none;color:#fff;display:flex;align-items:center;gap:8px}
+.fn-next:hover{background:#2563eb;box-shadow:0 6px 18px rgba(59,130,246,0.3)}
+.fn-done{background:var(--ok);border:none;color:#fff}
+.fn-done:hover{background:#059669;box-shadow:0 6px 18px rgba(16,185,129,0.3)}
 
-    .screen-bar {
-      height: 38px;
-      background: #f1efe8;
-      border-bottom: 0.5px solid #d3d1c7;
-      display: flex;
-      align-items: center;
-      padding: 0 12px;
-      font-size: 12px;
-      font-weight: 500;
-      color: #1a1a18;
-      flex-shrink: 0;
-    }
+/* ══════════════════════════════
+   6. EXPERT CONNECT
+══════════════════════════════ */
+#expertScreen{background:var(--bg)}
+.expert-body{flex:1;display:grid;grid-template-columns:1fr 340px;overflow:hidden}
+.call-area{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;background:var(--surface);position:relative;overflow:hidden}
+.call-bg{position:absolute;inset:0;background:radial-gradient(ellipse 60% 50% at 50% 50%,rgba(6,182,212,0.06),transparent)}
+.expert-video{width:260px;height:200px;background:var(--card);border-radius:16px;border:1px solid var(--border2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;position:relative;overflow:hidden}
+.ev-avatar{width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#164e63,#0891b2);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;color:#fff}
+.ev-name{font-size:15px;font-weight:700;color:#fff}
+.ev-role{font-size:11px;color:var(--muted);letter-spacing:1px}
+.ev-status{display:flex;align-items:center;gap:5px;font-size:10px;letter-spacing:1px;color:var(--cyan);background:rgba(6,182,212,0.1);padding:4px 10px;border-radius:20px;border:1px solid rgba(6,182,212,0.2)}
+.call-timer{font-size:32px;font-weight:800;color:#fff;font-family:var(--mono);letter-spacing:3px}
+.call-status-text{font-size:12px;letter-spacing:2px;color:var(--muted)}
+.call-controls{display:flex;gap:12px;margin-top:8px}
+.cc-btn{width:48px;height:48px;border-radius:50%;border:1px solid var(--border2);background:var(--panel);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.2s;font-size:18px}
+.cc-btn:hover{border-color:var(--border);background:var(--card);transform:scale(1.05)}
+.cc-btn.end{background:var(--crit);border-color:var(--crit)}
+.cc-btn.end:hover{background:#dc2626}
+.my-video{position:absolute;bottom:16px;right:16px;width:110px;height:80px;background:var(--panel);border-radius:8px;border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:10px;letter-spacing:1px;color:var(--muted);overflow:hidden}
+/* CHAT PANEL */
+.chat-panel{background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column}
+.cp-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.cp-title{font-size:13px;letter-spacing:2px;color:var(--text);font-weight:600;text-transform:uppercase}
+.cp-clear{font-size:10px;letter-spacing:1px;color:var(--muted);cursor:pointer}
+.chat-msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
+.msg{max-width:85%;display:flex;flex-direction:column;gap:3px}
+.msg.expert{align-self:flex-start}
+.msg.user{align-self:flex-end}
+.msg-bubble{padding:9px 13px;border-radius:10px;font-size:12px;line-height:1.5}
+.msg.expert .msg-bubble{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:3px 10px 10px 10px}
+.msg.user .msg-bubble{background:var(--accent);color:#fff;border-radius:10px 3px 10px 10px}
+.msg-time{font-size:9px;color:var(--muted);font-family:var(--mono)}
+.msg.user .msg-time{text-align:right}
+.chat-input-row{padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px}
+.chat-input{flex:1;background:var(--panel);border:1px solid var(--border2);border-radius:8px;padding:9px 12px;font-family:var(--font);font-size:12px;color:var(--text);outline:none}
+.chat-input:focus{border-color:var(--accent)}
+.chat-send{background:var(--accent);border:none;border-radius:8px;padding:9px 14px;color:#fff;cursor:pointer;font-family:var(--font);font-size:12px;font-weight:600;transition:background 0.2s}
+.chat-send:hover{background:#2563eb}
 
-    .back-btn {
-      font-size: 12px;
-      color: #185fa5;
-      cursor: pointer;
-      margin-right: 8px;
-      user-select: none;
-    }
-    .back-btn:hover { text-decoration: underline; }
+/* ══════════════════════════════
+   7. HISTORY
+══════════════════════════════ */
+#historyScreen{background:var(--bg)}
+.hist-body{flex:1;overflow-y:auto;padding:28px}
+.history-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;margin-top:20px}
+.hist-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;cursor:pointer;transition:all 0.2s}
+.hist-card:hover{border-color:var(--border2);transform:translateY(-2px);box-shadow:0 10px 30px rgba(0,0,0,0.3)}
+.hc-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px}
+.hc-machine{font-size:15px;font-weight:700;color:#fff}
+.hc-date{font-size:10px;font-family:var(--mono);color:var(--muted)}
+.hc-issue{font-size:13px;color:var(--muted);margin-bottom:12px;line-height:1.4}
+.hc-footer{display:flex;align-items:center;justify-content:space-between}
+.hc-how{font-size:10px;letter-spacing:1px;color:var(--hint);text-transform:uppercase}
+.hc-replay{font-size:10px;letter-spacing:1px;color:var(--accent);cursor:pointer}
+.hc-tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.hc-tag{font-size:9px;letter-spacing:1px;padding:2px 8px;border-radius:4px;background:var(--panel);border:1px solid var(--border);color:var(--muted)}
 
-    .screen-body {
-      flex: 1;
-      padding: 12px;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
+/* ══════════════════════════════
+   SUCCESS TOAST
+══════════════════════════════ */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--ok);color:#fff;padding:12px 24px;border-radius:10px;font-size:13px;font-weight:600;letter-spacing:1px;z-index:100;transition:transform 0.4s cubic-bezier(0.34,1.56,0.64,1);pointer-events:none}
+.toast.show{transform:translateX(-50%) translateY(0)}
 
-    /* ── Wireframe components ── */
-    .wf-label {
-      font-size: 10px;
-      color: #888780;
-      font-weight: 500;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-top: 2px;
-    }
-
-    .wf-input {
-      width: 100%;
-      padding: 8px 10px;
-      border: 0.5px solid #b4b2a9;
-      border-radius: 8px;
-      background: #f1efe8;
-      font-size: 12px;
-      color: #888780;
-    }
-
-    .wf-btn {
-      width: 100%;
-      padding: 10px;
-      border: 0.5px solid #b4b2a9;
-      border-radius: 8px;
-      background: #ffffff;
-      font-size: 12px;
-      color: #1a1a18;
-      cursor: pointer;
-      text-align: left;
-      transition: background 0.15s;
-      font-family: inherit;
-    }
-    .wf-btn:hover { background: #f1efe8; }
-
-    .wf-btn.primary {
-      background: #e6f1fb;
-      color: #0c447c;
-      border-color: #378add;
-      font-weight: 500;
-      text-align: center;
-    }
-    .wf-btn.primary:hover { background: #b5d4f4; }
-
-    .wf-divider {
-      border: none;
-      border-top: 0.5px solid #d3d1c7;
-      margin: 2px 0;
-    }
-
-    .wf-card {
-      border: 0.5px solid #d3d1c7;
-      border-radius: 8px;
-      padding: 9px 11px;
-      cursor: pointer;
-      background: #ffffff;
-      transition: background 0.15s;
-    }
-    .wf-card:hover { background: #f1efe8; }
-    .wf-card-title { font-size: 12px; font-weight: 500; color: #1a1a18; }
-    .wf-card-sub   { font-size: 11px; color: #5f5e5a; margin-top: 2px; }
-
-    /* ── Status dots ── */
-    .status-dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      display: inline-block;
-      flex-shrink: 0;
-    }
-    .dot-ok   { background: #1d9e75; }
-    .dot-warn { background: #ba7517; }
-    .dot-bad  { background: #e24b4a; }
-
-    /* ── AR viewport ── */
-    .ar-viewport {
-      border-radius: 8px;
-      border: 0.5px dashed #b4b2a9;
-      background: #f1efe8;
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      position: relative;
-      min-height: 160px;
-    }
-    .ar-viewport.active-border { border-style: solid; border-color: #378add; }
-    .ar-label {
-      position: absolute;
-      bottom: 8px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0,0,0,0.55);
-      color: #fff;
-      font-size: 10px;
-      padding: 3px 8px;
-      border-radius: 4px;
-      white-space: nowrap;
-    }
-
-    /* ── Sensor rows ── */
-    .sensor-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .sensor-name { font-size: 11px; color: #5f5e5a; }
-    .sensor-val  { font-size: 11px; font-weight: 500; }
-    .val-ok   { color: #0f6e56; }
-    .val-warn { color: #854f0b; }
-    .val-bad  { color: #a32d2d; }
-
-    /* ── Alert boxes ── */
-    .alert-box {
-      border-radius: 8px;
-      padding: 8px 10px;
-      font-size: 11px;
-      line-height: 1.5;
-    }
-    .alert-warn { background: #faeeda; color: #633806; border: 0.5px solid #ba7517; }
-    .alert-ok   { background: #e1f5ee; color: #085041; border: 0.5px solid #1d9e75; }
-
-    /* ── Expert cards ── */
-    .expert-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .expert-avatar {
-      width: 34px; height: 34px;
-      border-radius: 50%;
-      flex-shrink: 0;
-      background: #e6f1fb;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 11px;
-      font-weight: 500;
-      color: #0c447c;
-    }
-    .expert-avatar.green { background: #eaf3de; color: #27500a; }
-    .expert-info { flex: 1; }
-    .expert-name { font-size: 12px; font-weight: 500; color: #1a1a18; }
-    .expert-spec { font-size: 10px; color: #5f5e5a; }
-    .avail-badge {
-      font-size: 10px;
-      padding: 2px 6px;
-      border-radius: 20px;
-      background: #e1f5ee;
-      color: #0f6e56;
-      font-weight: 500;
-      white-space: nowrap;
-    }
-    .busy-badge {
-      font-size: 10px;
-      padding: 2px 6px;
-      border-radius: 20px;
-      background: #f1efe8;
-      color: #888780;
-      white-space: nowrap;
-    }
-
-    /* ── Call screen ── */
-    .call-avatar {
-      width: 60px; height: 60px;
-      border-radius: 50%;
-      background: #e6f1fb;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 20px;
-      font-weight: 500;
-      color: #0c447c;
-      margin: 0 auto;
-    }
-    .call-name   { font-size: 14px; font-weight: 500; color: #1a1a18; text-align: center; }
-    .call-status { font-size: 11px; color: #5f5e5a; text-align: center; }
-
-    .call-actions {
-      display: flex;
-      gap: 10px;
-      justify-content: center;
-      margin-top: 4px;
-    }
-    .call-btn {
-      width: 44px; height: 44px;
-      border-radius: 50%;
-      border: 0.5px solid #d3d1c7;
-      background: #f1efe8;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: background 0.15s;
-    }
-    .call-btn:hover { background: #d3d1c7; }
-    .call-btn.end { background: #fcebeb; border-color: #e24b4a; }
-    .call-btn.end:hover { background: #f7c1c1; }
-
-    .annotation-box {
-      border: 1.5px dashed #378add;
-      border-radius: 6px;
-      padding: 6px 9px;
-      background: rgba(55,138,221,0.06);
-      font-size: 10px;
-      color: #0c447c;
-      line-height: 1.5;
-    }
-
-    /* ── App logo on login ── */
-    .app-logo {
-      width: 52px; height: 52px;
-      border: 2px solid #d3d1c7;
-      border-radius: 14px;
-      background: #f1efe8;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 18px;
-      font-weight: 500;
-      color: #5f5e5a;
-      margin: 0 auto 8px;
-    }
-
-    /* ── Navigation dots ── */
-    .screen-nav {
-      display: flex;
-      gap: 8px;
-      justify-content: center;
-    }
-    .nav-dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      cursor: pointer;
-      border: 0.5px solid #b4b2a9;
-      background: #d3d1c7;
-      transition: background 0.15s, border-color 0.15s;
-    }
-    .nav-dot.active { background: #378add; border-color: #378add; }
-    .nav-dot:hover  { background: #85b7eb; border-color: #378add; }
-
-    .screen-label-text {
-      text-align: center;
-      font-size: 11px;
-      color: #888780;
-      margin-top: 2px;
-    }
-
-    /* ── Flow panel ── */
-    .flow-panel {
-      flex: 1;
-      min-width: 240px;
-      max-width: 360px;
-    }
-    .flow-title {
-      font-size: 13px;
-      font-weight: 500;
-      color: #1a1a18;
-      margin-bottom: 14px;
-    }
-    .flow-step {
-      display: flex;
-      gap: 10px;
-      align-items: flex-start;
-      margin-bottom: 4px;
-    }
-    .flow-num {
-      width: 24px; height: 24px;
-      border-radius: 50%;
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 11px;
-      font-weight: 500;
-      margin-top: 1px;
-    }
-    .flow-num.active { background: #e6f1fb; color: #0c447c; border: 1.5px solid #378add; }
-    .flow-num.done   { background: #e1f5ee; color: #0f6e56; border: 1.5px solid #1d9e75; }
-    .flow-num.idle   { background: #f1efe8; color: #888780; border: 0.5px solid #d3d1c7; }
-    .flow-label { font-size: 12px; font-weight: 500; color: #1a1a18; }
-    .flow-sub   { font-size: 11px; color: #5f5e5a; margin-top: 2px; line-height: 1.4; }
-    .flow-connector {
-      width: 1.5px; height: 14px;
-      background: #d3d1c7;
-      margin-left: 11px;
-    }
-
-    /* ── Problem solved panel ── */
-    .problem-panel {
-      border: 0.5px solid #d3d1c7;
-      border-radius: 10px;
-      padding: 12px 14px;
-      margin-top: 16px;
-      background: #ffffff;
-    }
-    .problem-title {
-      font-size: 10px;
-      font-weight: 500;
-      color: #888780;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 8px;
-    }
-    .problem-row {
-      display: flex;
-      gap: 6px;
-      align-items: flex-start;
-      margin-bottom: 5px;
-      font-size: 11px;
-    }
-    .p-before { color: #a32d2d; flex: 1; }
-    .p-arrow  { color: #b4b2a9; }
-    .p-after  { color: #0f6e56; flex: 1; }
-
-    /* ── Utility ── */
-    .row { display: flex; align-items: center; justify-content: space-between; }
-    .muted { font-size: 10px; color: #888780; }
-    .center { text-align: center; }
-    .mt4 { margin-top: 4px; }
-    .mt8 { margin-top: 8px; }
-  </style>
+/* SCROLLBAR */
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+</style>
 </head>
 <body>
 
-  <div class="page-header">
-    <h1>AR-Based Intelligent Maintenance System<h1><p> Clickable app flow · 6 screens </p>
+<!-- ══ TOAST ══ -->
+<div class="toast" id="toast">✓ Diagnosis saved to history</div>
+
+<!-- ══════════════════════════════
+     1. LOGIN
+══════════════════════════════ -->
+<div id="loginScreen" class="screen active">
+  <div class="login-bg">
+    <div class="login-bg-circle lbc1"></div>
+    <div class="login-bg-circle lbc2"></div>
+    <div class="login-grid"></div>
+    <div class="noise"></div>
   </div>
-
-  <div class="proto-wrap">
-
-    <!-- ── Phone ── -->
-    <div class="phone-outer">
-      <div class="phone-frame">
-        <div class="phone-notch"><div class="notch-dot"></div></div>
-        <div class="phone-screen">
-
-          <!-- Screen 0: Login -->
-          <div class="screen active" id="s0">
-            <div class="screen-bar">ArMaint</div>
-            <div class="screen-body" style="justify-content:center;">
-              <div class="center">
-                <div class="app-logo">AR</div>
-                <div style="font-size:15px;font-weight:500;color:#1a1a18;">ArMaint</div>
-                <div class="muted mt4">Industrial AR Maintenance</div>
-              </div>
-              <div class="wf-label mt8">Email</div>
-              <div class="wf-input">technician@tatamotors.com</div>
-              <div class="wf-label mt4">Password</div>
-              <div class="wf-input">••••••••</div>
-              <button class="wf-btn primary mt8" onclick="goTo(1)">Log in</button>
-              <div class="muted center">30-day free trial — no card needed</div>
-            </div>
-          </div>
-
-          <!-- Screen 1: Dashboard -->
-          <div class="screen" id="s1">
-            <div class="screen-bar">
-              <span>Dashboard</span>
-              <span style="margin-left:auto;font-size:10px;color:#888780;">Tata Motors — Line 3</span>
-            </div>
-            <div class="screen-body">
-              <div class="wf-label">Active machines</div>
-              <div class="wf-card" onclick="goTo(2)">
-                <div class="row">
-                  <div class="wf-card-title">CNC Lathe — Unit 04</div>
-                  <span class="status-dot dot-warn"></span>
-                </div>
-                <div class="wf-card-sub">Vibration warning · Tap to inspect</div>
-              </div>
-              <div class="wf-card" onclick="goTo(2)">
-                <div class="row">
-                  <div class="wf-card-title">Hydraulic Press — Unit 07</div>
-                  <span class="status-dot dot-ok"></span>
-                </div>
-                <div class="wf-card-sub">All sensors normal</div>
-              </div>
-              <div class="wf-card" onclick="goTo(2)">
-                <div class="row">
-                  <div class="wf-card-title">Conveyor Belt — Unit 12</div>
-                  <span class="status-dot dot-bad"></span>
-                </div>
-                <div class="wf-card-sub">Motor overheating — critical</div>
-              </div>
-              <hr class="wf-divider">
-              <button class="wf-btn primary" onclick="goTo(2)">Scan a machine with AR</button>
-            </div>
-          </div>
-
-          <!-- Screen 2: AR Scanner -->
-          <div class="screen" id="s2">
-            <div class="screen-bar">
-              <span class="back-btn" onclick="goTo(1)">← Back</span>
-              AR Scanner
-            </div>
-            <div class="screen-body">
-              <div class="ar-viewport">
-                <svg width="90" height="90" viewBox="0 0 90 90" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect x="10" y="10" width="70" height="70" rx="4" stroke="#b4b2a9" stroke-width="1" stroke-dasharray="4 3"/>
-                  <rect x="24" y="24" width="42" height="42" rx="3" stroke="#378add" stroke-width="1.5"/>
-                  <line x1="10" y1="10" x2="24" y2="24" stroke="#378add" stroke-width="1"/>
-                  <line x1="80" y1="10" x2="66" y2="24" stroke="#378add" stroke-width="1"/>
-                  <line x1="10" y1="80" x2="24" y2="66" stroke="#378add" stroke-width="1"/>
-                  <line x1="80" y1="80" x2="66" y2="66" stroke="#378add" stroke-width="1"/>
-                  <circle cx="45" cy="45" r="6" stroke="#1d9e75" stroke-width="1.5"/>
-                  <line x1="45" y1="30" x2="45" y2="38" stroke="#1d9e75" stroke-width="1"/>
-                  <line x1="45" y1="52" x2="45" y2="60" stroke="#1d9e75" stroke-width="1"/>
-                  <line x1="30" y1="45" x2="38" y2="45" stroke="#1d9e75" stroke-width="1"/>
-                  <line x1="52" y1="45" x2="60" y2="45" stroke="#1d9e75" stroke-width="1"/>
-                </svg>
-                <div style="font-size:10px;color:#5f5e5a;text-align:center;">Point camera at machine<br>to begin AR scan</div>
-                <div class="ar-label">Machine detected — CNC Lathe 04</div>
-              </div>
-              <button class="wf-btn primary" onclick="goTo(3)">View AR overlay</button>
-              <div class="muted center">3D model loaded · 12 sensors active</div>
-            </div>
-          </div>
-
-          <!-- Screen 3: AR Overlay -->
-          <div class="screen" id="s3">
-            <div class="screen-bar">
-              <span class="back-btn" onclick="goTo(2)">← Back</span>
-              AR Overlay — CNC Lathe 04
-            </div>
-            <div class="screen-body">
-              <div class="ar-viewport" style="min-height:130px;">
-                <svg width="150" height="100" viewBox="0 0 150 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect x="15" y="25" width="120" height="55" rx="6" stroke="#b4b2a9" stroke-width="1" stroke-dasharray="3 2"/>
-                  <rect x="28" y="34" width="36" height="26" rx="3" fill="#e6f1fb" stroke="#378add" stroke-width="1"/>
-                  <text x="46" y="49" text-anchor="middle" font-size="8" fill="#0c447c" font-family="sans-serif">Motor</text>
-                  <rect x="76" y="34" width="46" height="26" rx="3" fill="#faeeda" stroke="#ba7517" stroke-width="1"/>
-                  <text x="99" y="46" text-anchor="middle" font-size="8" fill="#633806" font-family="sans-serif">Bearing</text>
-                  <text x="99" y="56" text-anchor="middle" font-size="7" fill="#854f0b" font-family="sans-serif">! Warning</text>
-                  <line x1="110" y1="34" x2="122" y2="18" stroke="#ba7517" stroke-width="1" stroke-dasharray="2 1"/>
-                  <rect x="118" y="10" width="26" height="12" rx="2" fill="#faeeda" stroke="#ba7517" stroke-width="0.5"/>
-                  <text x="131" y="18" text-anchor="middle" font-size="7" fill="#633806" font-family="sans-serif">87°C</text>
-                </svg>
-                <div class="ar-label">Tap a component to inspect</div>
-              </div>
-              <div class="wf-label">Live sensor readings</div>
-              <div class="sensor-row"><span class="sensor-name">Motor temp</span><span class="sensor-val val-ok">62°C — Normal</span></div>
-              <div class="sensor-row"><span class="sensor-name">Bearing temp</span><span class="sensor-val val-warn">87°C — Warning</span></div>
-              <div class="sensor-row"><span class="sensor-name">Vibration</span><span class="sensor-val val-bad">4.2g — Critical</span></div>
-              <div class="alert-box alert-warn">AI prediction: Bearing failure likely in 3–5 days. Schedule replacement.</div>
-              <button class="wf-btn primary" onclick="goTo(4)">Call expert for guidance</button>
-            </div>
-          </div>
-
-          <!-- Screen 4: Expert Network -->
-          <div class="screen" id="s4">
-            <div class="screen-bar">
-              <span class="back-btn" onclick="goTo(3)">← Back</span>
-              Expert network
-            </div>
-            <div class="screen-body">
-              <div class="wf-label">Available now</div>
-              <div class="wf-card" onclick="goTo(5)" style="display:flex;align-items:center;gap:8px;padding:10px;">
-                <div class="expert-avatar">RK</div>
-                <div class="expert-info">
-                  <div class="expert-name">Rajesh Kumar</div>
-                  <div class="expert-spec">CNC & hydraulic systems · 18 yrs</div>
-                </div>
-                <span class="avail-badge">Online</span>
-              </div>
-              <div class="wf-card" style="display:flex;align-items:center;gap:8px;padding:10px;opacity:0.65;cursor:default;">
-                <div class="expert-avatar green">SP</div>
-                <div class="expert-info">
-                  <div class="expert-name">Sunita Patil</div>
-                  <div class="expert-spec">Electrical & motor systems · 12 yrs</div>
-                </div>
-                <span class="busy-badge">In call</span>
-              </div>
-              <hr class="wf-divider">
-              <div class="wf-label">Session info</div>
-              <div style="font-size:11px;color:#5f5e5a;">Rate: ₹2,000 per session · Avg. duration: 22 min</div>
-              <button class="wf-btn primary" onclick="goTo(5)">Connect with Rajesh Kumar</button>
-            </div>
-          </div>
-
-          <!-- Screen 5: Live Expert Call -->
-          <div class="screen" id="s5">
-            <div class="screen-bar">
-              <span class="back-btn" onclick="goTo(4)">← Back</span>
-              Live session
-            </div>
-            <div class="screen-body" style="gap:8px;">
-              <div class="call-avatar">RK</div>
-              <div class="call-name">Rajesh Kumar</div>
-              <div class="call-status">Connected · 00:03:21</div>
-              <div class="annotation-box">"Replace bearing on shaft 2 — use SKF 6205. Torque to 12 Nm."</div>
-              <div class="ar-viewport active-border" style="min-height:80px;">
-                <div style="font-size:10px;color:#5f5e5a;">Expert sees your AR view</div>
-                <div class="ar-label">Live AR share active</div>
-              </div>
-              <div class="call-actions">
-                <div class="call-btn" title="Mute">
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="5" y="1" width="6" height="9" rx="3" stroke="#5f5e5a" stroke-width="1.2"/><path d="M2 8c0 3.3 2.7 6 6 6s6-2.7 6-6" stroke="#5f5e5a" stroke-width="1.2" fill="none"/><line x1="8" y1="14" x2="8" y2="16" stroke="#5f5e5a" stroke-width="1.2"/></svg>
-                </div>
-                <div class="call-btn" title="Camera">
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="4" width="10" height="8" rx="2" stroke="#5f5e5a" stroke-width="1.2"/><path d="M11 7l4-2v6l-4-2V7z" stroke="#5f5e5a" stroke-width="1.2" fill="none"/></svg>
-                </div>
-                <div class="call-btn end" onclick="goTo(1)" title="End call">
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M1 10c1-4 4-6 7-6s6 2 7 6l-3 1c-.5-2-1.5-3-4-3s-3.5 1-4 3L1 10z" stroke="#a32d2d" stroke-width="1.2" fill="none"/></svg>
-                </div>
-              </div>
-              <div class="muted center">Session logged · ₹2,000 billed on end</div>
-            </div>
-          </div>
-
-        </div><!-- /phone-screen -->
-      </div><!-- /phone-frame -->
-
-      <div class="screen-nav" id="nav-dots">
-        <div class="nav-dot active" onclick="goTo(0)" title="Login"></div>
-        <div class="nav-dot" onclick="goTo(1)" title="Dashboard"></div>
-        <div class="nav-dot" onclick="goTo(2)" title="AR Scanner"></div>
-        <div class="nav-dot" onclick="goTo(3)" title="AR Overlay"></div>
-        <div class="nav-dot" onclick="goTo(4)" title="Expert Network"></div>
-        <div class="nav-dot" onclick="goTo(5)" title="Live Session"></div>
-      </div>
-      <div class="screen-label-text" id="screen-label">Screen 1 of 6 — Login</div>
-
-    </div><!-- /phone-outer -->
-
-    <!-- ── Flow panel ── -->
-    <div class="flow-panel">
-      <div class="flow-title">App flow — how each screen solves the problem</div>
-
-      <div class="flow-step">
-        <div class="flow-num active" id="fn0">1</div>
-        <div class="flow-text">
-          <div class="flow-label">Login</div>
-          <div class="flow-sub">Technician logs in with secure factory credentials</div>
+  <div class="login-wrap">
+    <div class="login-left">
+      <div class="logo" style="margin-bottom:40px">
+        <div class="logo-hex"></div>
+        <div>
+          <div class="logo-name">ARCNC</div>
+          <div class="logo-tag">Industrial AR</div>
         </div>
       </div>
-      <div class="flow-connector"></div>
-
-      <div class="flow-step">
-        <div class="flow-num idle" id="fn1">2</div>
-        <div class="flow-text">
-          <div class="flow-label">Dashboard</div>
-          <div class="flow-sub">Live machine status — no manual walkaround needed</div>
+      <div class="login-hero">
+        <div class="login-hero-title">See inside your machines.</div>
+        <div class="login-hero-sub">AR-powered diagnostics for industrial equipment. Point, scan, and fix — with or without an expert.</div>
+        <div class="feature-list">
+          <div class="feature-item"><div class="fi-dot"></div>Real-time AR component overlay</div>
+          <div class="feature-item"><div class="fi-dot" style="background:var(--cyan)"></div>AI-driven fault detection</div>
+          <div class="feature-item"><div class="fi-dot" style="background:var(--ok)"></div>Expert connect in under 60s</div>
+          <div class="feature-item"><div class="fi-dot" style="background:var(--warn)"></div>Full diagnosis history log</div>
         </div>
       </div>
-      <div class="flow-connector"></div>
-
-      <div class="flow-step">
-        <div class="flow-num idle" id="fn2">3</div>
-        <div class="flow-text">
-          <div class="flow-label">AR scan</div>
-          <div class="flow-sub">Points phone at machine — 3D model loads automatically</div>
+      <div style="font-size:10px;letter-spacing:2px;color:var(--hint);margin-top:40px">FACILITY 7 · BAY C · v2.4.1</div>
+    </div>
+    <div class="login-right" style="position:relative;overflow:hidden">
+      <div class="scan-line"></div>
+      <div class="tab-switch">
+        <button class="tab-btn active" onclick="switchTab(this,'login-form')">LOGIN</button>
+        <button class="tab-btn" onclick="switchTab(this,'signup-form')">SIGN UP</button>
+      </div>
+      <!-- LOGIN FORM -->
+      <div id="login-form">
+        <div class="field">
+          <label class="field-label">Operator ID / Email</label>
+          <input class="field-input" id="loginEmail" type="text" placeholder="eng.sharma@facility-7.com" value="eng.sharma@facility-7.com">
+        </div>
+        <div class="field">
+          <label class="field-label">Access Code</label>
+          <input class="field-input" id="loginPass" type="password" placeholder="••••••••" value="correct123">
+          <div class="error-msg" id="loginError">Invalid credentials. Try again.</div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+          <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);cursor:pointer">
+            <input type="checkbox" checked style="accent-color:var(--accent)"> Remember this device
+          </label>
+          <span style="font-size:11px;color:var(--accent);cursor:pointer">Forgot code?</span>
+        </div>
+        <button class="auth-btn" onclick="attemptLogin()">
+          <span class="btn-shimmer"></span>
+          AUTHENTICATE
+        </button>
+        <div class="divider">or continue with</div>
+        <button class="social-btn" onclick="goTo('dashScreen')">🔐 Biometric / SSO Login</button>
+        <div style="margin-top:20px;font-size:11px;color:var(--hint);text-align:center">
+          For demo: any password works except "wrong"
         </div>
       </div>
-      <div class="flow-connector"></div>
+      <!-- SIGNUP FORM -->
+      <div id="signup-form" style="display:none">
+        <div class="field">
+          <label class="field-label">Full Name</label>
+          <input class="field-input" type="text" placeholder="Rahul Sharma">
+        </div>
+        <div class="field">
+          <label class="field-label">Work Email</label>
+          <input class="field-input" type="email" placeholder="you@facility.com">
+        </div>
+        <div class="field">
+          <label class="field-label">Facility ID</label>
+          <input class="field-input" type="text" placeholder="FAC-007">
+        </div>
+        <div class="field">
+          <label class="field-label">Access Code</label>
+          <input class="field-input" type="password" placeholder="Min 8 characters">
+        </div>
+        <button class="auth-btn" onclick="goTo('dashScreen')" style="margin-top:4px">
+          <span class="btn-shimmer"></span>
+          CREATE ACCOUNT
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 
-      <div class="flow-step">
-        <div class="flow-num idle" id="fn3">4</div>
-        <div class="flow-text">
-          <div class="flow-label">AR overlay + AI diagnosis</div>
-          <div class="flow-sub">Sensor data visible in AR · AI flags the fault location</div>
+<!-- ══════════════════════════════
+     2. DASHBOARD
+══════════════════════════════ -->
+<div id="dashScreen" class="screen">
+  <div class="topbar">
+    <div class="logo">
+      <div class="logo-hex" style="width:26px;height:26px"></div>
+      <div class="logo-name" style="font-size:15px">ARCNC</div>
+    </div>
+    <div class="topbar-nav">
+      <div class="tn active">DASHBOARD</div>
+      <div class="tn" onclick="goTo('historyScreen')">HISTORY</div>
+      <div class="tn" onclick="goTo('expertScreen')">EXPERTS</div>
+    </div>
+    <div class="topbar-right">
+      <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="avatar">RS</div>
+        <div class="user-name">Rahul Sharma</div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);cursor:pointer;letter-spacing:1px" onclick="goTo('loginScreen')">LOGOUT</div>
+    </div>
+  </div>
+  <div class="dash-body">
+    <div class="sidebar">
+      <div class="sb-section">Main</div>
+      <div class="sb-item active">
+        <svg class="sb-ico" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 16 16"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>
+        Dashboard
+      </div>
+      <div class="sb-item" onclick="goTo('arScreen')">
+        <svg class="sb-ico" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 16 16"><path d="M2 6V3h3M11 3h3v3M2 10v3h3M11 13h3v-3"/><circle cx="8" cy="8" r="2"/></svg>
+        Scan Machine
+      </div>
+      <div class="sb-item" onclick="goTo('historyScreen')">
+        <svg class="sb-ico" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>
+        Recent Diagnoses
+        <span class="sb-badge">3</span>
+      </div>
+      <div class="sb-item" onclick="goTo('expertScreen')">
+        <svg class="sb-ico" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 16 16"><circle cx="6" cy="5" r="2.5"/><path d="M2 14c0-3 1.8-4.5 4-4.5s4 1.5 4 4.5"/><path d="M11 7c1.5 0 3 1 3 3.5"/><circle cx="12" cy="4.5" r="1.5"/></svg>
+        Expert Support
+      </div>
+      <div class="sb-section">Fleet</div>
+      <div class="sb-item">
+        <svg class="sb-ico" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 16 16"><rect x="3" y="4" width="10" height="8" rx="1"/><path d="M6 4V3M10 4V3M1 7h14"/></svg>
+        Work Orders
+      </div>
+      <div class="sb-item">
+        <svg class="sb-ico" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 16 16"><path d="M3 12V4l4 3 4-3v8M7 7l4-3"/></svg>
+        Reports
+      </div>
+      <div style="flex:1"></div>
+      <div style="margin:12px;background:rgba(239,68,68,0.07);border:1px solid rgba(239,68,68,0.2);border-radius:10px;padding:12px">
+        <div style="font-size:9px;letter-spacing:2px;color:var(--crit);margin-bottom:5px">⚠ CRITICAL</div>
+        <div style="font-size:11px;color:var(--text);line-height:1.4">CNC-003 vibration 4.2g exceeds limit</div>
+        <button onclick="goTo('arScreen')" style="margin-top:8px;width:100%;background:transparent;border:1px solid rgba(239,68,68,0.3);border-radius:6px;padding:6px;font-family:var(--font);font-size:11px;letter-spacing:1px;color:var(--crit);cursor:pointer;transition:all 0.2s" onmouseover="this.style.background='rgba(239,68,68,0.1)'" onmouseout="this.style.background='transparent'">Inspect Now →</button>
+      </div>
+    </div>
+    <div class="dash-main">
+      <div class="pg-header">
+        <div class="pg-title">Good morning, Rahul</div>
+        <div class="pg-sub">FACILITY 7 · BAY C · TUE 21 APR 2026 · 09:41 IST</div>
+      </div>
+      <!-- SCAN HERO -->
+      <div class="scan-hero" onclick="goTo('arScreen')">
+        <div class="sh-left">
+          <div class="sh-tag">Primary Action</div>
+          <div class="sh-title">Scan a Machine</div>
+          <div class="sh-desc">Point your device at any CNC unit to instantly reveal internal components, live sensor data, and AI fault detection.</div>
+        </div>
+        <div class="sh-icon">
+          <div class="sh-ring ring1"></div>
+          <div class="sh-ring ring2"></div>
+          <div class="sh-ring ring3"></div>
+          <div class="sh-center">
+            <svg width="18" height="18" fill="none" stroke="#fff" stroke-width="2" viewBox="0 0 24 24"><path d="M2 8V5a2 2 0 0 1 2-2h3M22 8V5a2 2 0 0 0-2-2h-3M2 16v3a2 2 0 0 0 2 2h3M22 16v3a2 2 0 0 1-2 2h-3"/><circle cx="12" cy="12" r="3"/></svg>
+          </div>
+        </div>
+        <button class="sh-btn">SCAN NOW <span>→</span></button>
+      </div>
+      <!-- STATS -->
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="sc-label">Fleet Uptime</div>
+          <div class="sc-value">94<span class="sc-unit">%</span></div>
+          <div class="sc-sub" style="color:var(--ok)">↑ +2.1% this week</div>
+        </div>
+        <div class="stat-card">
+          <div class="sc-label">Active Alerts</div>
+          <div class="sc-value" style="color:var(--crit)">3</div>
+          <div class="sc-sub" style="color:var(--crit)">1 critical, 2 warnings</div>
+        </div>
+        <div class="stat-card">
+          <div class="sc-label">Avg Resolution</div>
+          <div class="sc-value">18<span class="sc-unit">min</span></div>
+          <div class="sc-sub" style="color:var(--ok)">↓ 6min faster than avg</div>
         </div>
       </div>
-      <div class="flow-connector"></div>
-
-      <div class="flow-step">
-        <div class="flow-num idle" id="fn4">5</div>
-        <div class="flow-text">
-          <div class="flow-label">Expert selection</div>
-          <div class="flow-sub">Picks an available domain expert for live guidance</div>
+      <!-- RECENT DIAGNOSES -->
+      <div class="section-hdr">
+        <div class="sec-title">Recent Diagnoses</div>
+        <div class="sec-link" onclick="goTo('historyScreen')">View all →</div>
+      </div>
+      <div class="diag-list">
+        <div class="diag-item">
+          <div class="di-icon" style="background:rgba(239,68,68,0.1)">⚙️</div>
+          <div class="di-info">
+            <div class="di-machine">CNC-003 — Bay C</div>
+            <div class="di-issue">High vibration on spindle bearing (4.2g detected)</div>
+            <div class="di-time">09:38 today · AI detected</div>
+          </div>
+          <div class="di-status"><span class="status-pill pill-crit"><span class="pill-dot"></span>OPEN</span></div>
+        </div>
+        <div class="diag-item">
+          <div class="di-icon" style="background:rgba(245,158,11,0.1)">🌡️</div>
+          <div class="di-info">
+            <div class="di-machine">CNC-002 — Bay C</div>
+            <div class="di-issue">Bearing temperature elevated: 87°C</div>
+            <div class="di-time">Yesterday 14:22 · Manual scan</div>
+          </div>
+          <div class="di-status"><span class="status-pill pill-warn"><span class="pill-dot"></span>MONITORING</span></div>
+        </div>
+        <div class="diag-item">
+          <div class="di-icon" style="background:rgba(16,185,129,0.1)">✅</div>
+          <div class="di-info">
+            <div class="di-machine">CNC-001 — Bay C</div>
+            <div class="di-issue">Coolant pump flow low — replaced filter</div>
+            <div class="di-time">20 Apr · Self-fixed in 12 min</div>
+          </div>
+          <div class="di-status"><span class="status-pill pill-ok"><span class="pill-dot"></span>RESOLVED</span></div>
         </div>
       </div>
-      <div class="flow-connector"></div>
+      <!-- EXPERT SUPPORT -->
+      <div class="support-card">
+        <div class="expert-avatar-group">
+          <div class="ea" style="background:linear-gradient(135deg,#1e3a5f,#1d4ed8)">PK</div>
+          <div class="ea" style="background:linear-gradient(135deg,#164e63,#0891b2)">MV</div>
+          <div class="ea" style="background:linear-gradient(135deg,#3f0f71,#7c3aed)">AR</div>
+          <div class="ea" style="background:var(--panel);font-size:10px;color:var(--muted)">+4</div>
+        </div>
+        <div class="support-text">
+          <div class="st-title">Expert technicians online now</div>
+          <div class="st-desc">7 certified engineers available. Avg. connect time: 45 seconds.</div>
+        </div>
+        <button class="connect-btn" onclick="goTo('expertScreen')">CONNECT →</button>
+      </div>
+    </div>
+  </div>
+</div>
 
-      <div class="flow-step">
-        <div class="flow-num idle" id="fn5">6</div>
-        <div class="flow-text">
-          <div class="flow-label">Live AR expert call</div>
-          <div class="flow-sub">Expert sees through AR view and annotates the fix live</div>
+<!-- ══════════════════════════════
+     3. AR VIEW
+══════════════════════════════ -->
+<div id="arScreen" class="screen">
+  <div class="topbar">
+    <div class="logo">
+      <div class="logo-hex" style="width:26px;height:26px"></div>
+      <div class="logo-name" style="font-size:15px">ARCNC</div>
+    </div>
+    <div style="margin-left:12px;font-size:11px;letter-spacing:2px;color:var(--muted)">AR SCANNER</div>
+    <div class="topbar-right">
+      <div style="display:flex;align-items:center;gap:5px;font-size:11px;letter-spacing:1.5px;color:var(--cyan)"><div style="width:6px;height:6px;border-radius:50%;background:var(--cyan);animation:livepulse 1.2s infinite"></div>SCANNING</div>
+      <button onclick="goTo('dashScreen')" style="background:transparent;border:1px solid var(--border);border-radius:7px;padding:6px 12px;font-family:var(--font);font-size:11px;letter-spacing:1px;color:var(--muted);cursor:pointer">← BACK</button>
+    </div>
+  </div>
+  <div class="ar-wrap" id="arWrap">
+    <canvas id="arCanvas"></canvas>
+    <div class="ar-overlay">
+      <div class="hud-corner hc-tl"></div><div class="hud-corner hc-tr"></div>
+      <div class="hud-corner hc-bl"></div><div class="hud-corner hc-br"></div>
+      <div class="hud-tl-info">
+        <div class="hud-label">Target</div>
+        <div class="hud-val" style="font-size:14px;color:var(--accent)">CNC-003</div>
+        <div class="hud-sub">BAY C · SPINDLE UNIT</div>
+      </div>
+      <div class="hud-tr-info">
+        <div class="hud-label">Session</div>
+        <div class="hud-val" id="arTimer">00:00</div>
+        <div class="hud-sub">LIVE FEED</div>
+      </div>
+      <div class="scan-target">
+        <div class="st-corner tl"></div><div class="st-corner tr"></div>
+        <div class="st-corner bl"></div><div class="st-corner br"></div>
+        <div class="scan-sweep"></div>
+      </div>
+      <div class="ar-status-bar">
+        <div class="ar-status-dot"></div>
+        <span id="arStatusText" style="font-family:var(--mono);font-size:11px;letter-spacing:1px;color:var(--text)">Point camera at machine to begin scan</span>
+      </div>
+    </div>
+    <!-- PROCESSING OVERLAY -->
+    <div class="processing-overlay" id="processingOverlay" style="display:none">
+      <div class="proc-ring"></div>
+      <div class="proc-text">ANALYSING MACHINE</div>
+      <div class="proc-steps">
+        <div class="proc-step" id="ps1">○ Detecting component geometry...</div>
+        <div class="proc-step" id="ps2">○ Reading sensor nodes...</div>
+        <div class="proc-step" id="ps3">○ Running fault detection model...</div>
+        <div class="proc-step" id="ps4">○ Generating AR overlay...</div>
+      </div>
+    </div>
+    <div class="ar-bottom-bar">
+      <button class="ar-back-btn" onclick="goTo('dashScreen')">← Dashboard</button>
+      <button class="ar-process-btn" id="processBtn" onclick="startProcessing()">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+        PROCESS SCAN
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════
+     4. DIAGNOSIS
+══════════════════════════════ -->
+<div id="diagScreen" class="screen">
+  <div class="topbar">
+    <div class="logo">
+      <div class="logo-hex" style="width:26px;height:26px"></div>
+      <div class="logo-name" style="font-size:15px">ARCNC</div>
+    </div>
+    <div style="margin-left:12px;font-size:11px;letter-spacing:2px;color:var(--muted)">AI DIAGNOSIS</div>
+    <div class="topbar-right">
+      <div style="display:flex;align-items:center;gap:5px;font-size:11px;letter-spacing:1.5px;color:var(--crit)"><div style="width:6px;height:6px;border-radius:50%;background:var(--crit);animation:livepulse 1s infinite"></div>FAULT DETECTED</div>
+      <button onclick="goTo('arScreen')" style="background:transparent;border:1px solid var(--border);border-radius:7px;padding:6px 12px;font-family:var(--font);font-size:11px;letter-spacing:1px;color:var(--muted);cursor:pointer">← RESCAN</button>
+    </div>
+  </div>
+  <div class="diag-body">
+    <div class="diag-left">
+      <canvas id="diagCanvas"></canvas>
+      <div class="diag-overlay" id="diagOverlay">
+        <div class="diag-tag tag-ok" style="top:28%;left:12%" onclick="highlightComp('motor')">
+          <div class="dt-label">Motor</div><div class="dt-val">62°C — OK</div>
+        </div>
+        <div class="diag-tag tag-warn" style="top:45%;left:6%" onclick="highlightComp('bearing')">
+          <div class="dt-label">Bearing ▲</div><div class="dt-val">87°C — Warn</div>
+        </div>
+        <div class="diag-tag tag-crit" style="top:32%;right:10%;animation:criticalpulse 1s ease-in-out infinite" onclick="highlightComp('vibration')">
+          <div class="dt-label">Vibration !!</div><div class="dt-val">4.2g — CRITICAL</div>
+        </div>
+        <div class="diag-tag tag-ok" style="bottom:28%;left:20%" onclick="highlightComp('gearbox')">
+          <div class="dt-label">Gearbox</div><div class="dt-val">Normal</div>
+        </div>
+        @keyframes criticalpulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.4)}50%{box-shadow:0 0 0 6px rgba(239,68,68,0)}}
+      </div>
+    </div>
+    <div class="diag-right">
+      <div class="dr-header">
+        <div class="dr-badge"><span style="width:5px;height:5px;border-radius:50%;background:var(--crit);display:inline-block"></span>FAULT DETECTED</div>
+        <div class="dr-title">Spindle Bearing Failure</div>
+        <div class="dr-machine">CNC-003 · Bay C · Detected 09:38:14</div>
+        <div class="dr-tabs">
+          <div class="dr-tab active" onclick="switchDrTab(this,'steps-tab')">Fix Steps</div>
+          <div class="dr-tab" onclick="switchDrTab(this,'details-tab')">Details</div>
+          <div class="dr-tab" onclick="switchDrTab(this,'history-tab')">Past Cases</div>
         </div>
       </div>
-    </div><!-- /flow-panel -->
+      <div class="dr-content">
+        <div id="steps-tab">
+          <div style="background:rgba(239,68,68,0.05);border:1px solid rgba(239,68,68,0.15);border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;color:var(--muted);line-height:1.5">
+            <span style="color:var(--crit);font-weight:700">Root cause:</span> Excessive vibration (4.2g) on the spindle bearing assembly. Likely cause: worn bearing race or imbalanced spindle. Immediate action required.
+          </div>
+          <div class="step-list">
+            <div class="step-item"><div class="step-num done">1</div><div class="step-body"><div class="step-title">Isolate the machine</div><div class="step-desc">Shut down CNC-003, engage lockout/tagout. Notify shift supervisor.</div><span class="step-tool">🔒 E-STOP button</span></div></div>
+            <div class="step-item"><div class="step-num active">2</div><div class="step-body"><div class="step-title">Remove spindle cover</div><div class="step-desc">Unscrew 4× M8 bolts on the top access panel using T40 Torx driver.</div><span class="step-tool">🔧 T40 Torx driver</span></div></div>
+            <div class="step-item"><div class="step-num">3</div><div class="step-body"><div class="step-title">Inspect bearing race</div><div class="step-desc">Check for visible wear, pitting, or discolouration on inner and outer race.</div><span class="step-tool">🔦 Inspection light</span></div></div>
+            <div class="step-item"><div class="step-num">4</div><div class="step-body"><div class="step-title">Replace bearing assembly</div><div class="step-desc">Remove old bearing using puller tool. Press-fit replacement SKF 6208-2Z bearing.</div><span class="step-tool">🛠 Bearing puller · SKF 6208-2Z</span></div></div>
+            <div class="step-item"><div class="step-num">5</div><div class="step-body"><div class="step-title">Test and verify</div><div class="step-desc">Restart machine at 30% speed. Verify vibration returns below 1.0g. Log repair.</div><span class="step-tool">📊 ARCNC vibration monitor</span></div></div>
+          </div>
+        </div>
+        <div id="details-tab" style="display:none">
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px">
+              <div style="font-size:10px;letter-spacing:2px;color:var(--muted);margin-bottom:8px">SENSOR READINGS</div>
+              <div style="display:flex;flex-direction:column;gap:6px;font-size:12px">
+                <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Vibration</span><span style="color:var(--crit);font-family:var(--mono)">4.2g</span></div>
+                <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Bearing Temp</span><span style="color:var(--warn);font-family:var(--mono)">87°C</span></div>
+                <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Motor Temp</span><span style="color:var(--ok);font-family:var(--mono)">62°C</span></div>
+                <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Spindle RPM</span><span style="font-family:var(--mono)">1450</span></div>
+                <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Load</span><span style="color:var(--warn);font-family:var(--mono)">94%</span></div>
+              </div>
+            </div>
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px">
+              <div style="font-size:10px;letter-spacing:2px;color:var(--muted);margin-bottom:8px">MACHINE INFO</div>
+              <div style="display:flex;flex-direction:column;gap:6px;font-size:12px">
+                <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Model</span><span>FANUC α-C400/S</span></div>
+                <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Serial</span><span style="font-family:var(--mono)">FNC-003-2021</span></div>
+                <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Run hours</span><span style="font-family:var(--mono)">4,287h</span></div>
+                <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Last service</span><span>14 Apr 2026</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="history-tab" style="display:none">
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:12px">
+              <div style="color:var(--text);font-weight:600;margin-bottom:3px">Similar issue — 12 Mar 2026</div>
+              <div style="color:var(--muted)">Bearing replaced, resolved in 45 min. Expert assist used.</div>
+              <div style="color:var(--ok);margin-top:5px;font-size:10px">✓ RESOLVED</div>
+            </div>
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:12px">
+              <div style="color:var(--text);font-weight:600;margin-bottom:3px">Vibration spike — 28 Jan 2026</div>
+              <div style="color:var(--muted)">Spindle imbalance corrected. Self-fixed.</div>
+              <div style="color:var(--ok);margin-top:5px;font-size:10px">✓ RESOLVED</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="path-chooser">
+        <div class="pc-label">Choose your path</div>
+        <div class="path-btns">
+          <button class="path-btn path-self" onclick="goTo('fixScreen')">
+            <div class="pb-title">🛠 I'll fix it myself</div>
+            <div class="pb-desc">Follow step-by-step guided repair instructions</div>
+          </button>
+          <button class="path-btn path-expert" onclick="goTo('expertScreen')">
+            <div class="pb-title">👨‍🔧 Connect to an expert</div>
+            <div class="pb-desc">Get live guidance from a certified technician</div>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
-  </div><!-- /proto-wrap -->
+<!-- ══════════════════════════════
+     5. SELF-FIX
+══════════════════════════════ -->
+<div id="fixScreen" class="screen">
+  <div class="topbar">
+    <div class="logo">
+      <div class="logo-hex" style="width:26px;height:26px"></div>
+      <div class="logo-name" style="font-size:15px">ARCNC</div>
+    </div>
+    <div style="margin-left:12px;font-size:11px;letter-spacing:2px;color:var(--muted)">GUIDED REPAIR</div>
+    <div class="topbar-right">
+      <button onclick="goTo('diagScreen')" style="background:transparent;border:1px solid var(--border);border-radius:7px;padding:6px 12px;font-family:var(--font);font-size:11px;letter-spacing:1px;color:var(--muted);cursor:pointer">← DIAGNOSIS</button>
+    </div>
+  </div>
+  <div class="fix-body">
+    <div class="fix-header">
+      <div class="fix-title">Bearing Replacement Guide</div>
+      <div class="fix-sub">CNC-003 · SPINDLE BEARING · CRITICAL PRIORITY</div>
+    </div>
+    <div class="fix-progress">
+      <div class="fp-header">
+        <div class="fp-title">Progress</div>
+        <div class="fp-count" id="stepCounter">Step 1 of 5</div>
+      </div>
+      <div class="progress-bar-bg"><div class="progress-bar" id="progressBar" style="width:20%"></div></div>
+    </div>
+    <div id="fixStepCard" class="fix-step-card">
+      <div class="fsc-num" id="stepBgNum">01</div>
+      <div class="fsc-tag" id="stepTag">SAFETY FIRST</div>
+      <div class="fsc-title" id="stepTitle">Isolate the machine</div>
+      <div class="fsc-desc" id="stepDesc">Engage the E-STOP button on CNC-003. Apply lockout/tagout (LOTO) to the main power isolator. Notify shift supervisor of the shutdown. Do not proceed until lock is confirmed.</div>
+      <div class="fsc-tools" id="stepTools">
+        <div class="tool-chip">🔒 E-STOP button</div>
+        <div class="tool-chip">🏷 LOTO kit</div>
+      </div>
+      <div class="fsc-check">
+        <input type="checkbox" id="stepCheck" onchange="enableNext(this)">
+        <label for="stepCheck" id="checkLabel">I have isolated the machine and applied LOTO</label>
+      </div>
+    </div>
+    <div class="fix-nav">
+      <button class="fn-btn fn-prev" id="prevBtn" onclick="prevStep()" style="opacity:0.3;pointer-events:none">← Previous</button>
+      <button class="fn-btn fn-next" id="nextBtn" onclick="nextStep()" style="opacity:0.5;pointer-events:none">Next Step →</button>
+    </div>
+  </div>
+</div>
 
-  <script>
-    const labels = ['Login','Dashboard','AR Scanner','AR Overlay + AI','Expert Network','Live Expert Call'];
-    let current = 0;
+<!-- ══════════════════════════════
+     6. EXPERT SUPPORT
+══════════════════════════════ -->
+<div id="expertScreen" class="screen">
+  <div class="topbar">
+    <div class="logo">
+      <div class="logo-hex" style="width:26px;height:26px"></div>
+      <div class="logo-name" style="font-size:15px">ARCNC</div>
+    </div>
+    <div style="margin-left:12px;font-size:11px;letter-spacing:2px;color:var(--cyan)">EXPERT SESSION · LIVE</div>
+    <div class="topbar-right">
+      <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--cyan)"><div style="width:6px;height:6px;border-radius:50%;background:var(--cyan);animation:livepulse 1.2s infinite"></div>CONNECTED</div>
+      <button onclick="endCall()" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:7px;padding:6px 12px;font-family:var(--font);font-size:11px;letter-spacing:1px;color:var(--crit);cursor:pointer">END SESSION</button>
+    </div>
+  </div>
+  <div class="expert-body">
+    <div class="call-area">
+      <div class="call-bg"></div>
+      <div class="expert-video">
+        <div class="ev-avatar">PK</div>
+        <div class="ev-name">Prashant Kumar</div>
+        <div class="ev-role" style="letter-spacing:1px;font-size:10px">SENIOR CNC TECHNICIAN</div>
+        <div class="ev-status"><div style="width:5px;height:5px;border-radius:50%;background:var(--cyan);animation:livepulse 1.2s infinite"></div>Connected</div>
+      </div>
+      <div class="call-timer" id="callTimer">00:00</div>
+      <div class="call-status-text">Session active — CNC-003 fault shared</div>
+      <div class="call-controls">
+        <div class="cc-btn" title="Mute">🎙</div>
+        <div class="cc-btn" title="Video">📷</div>
+        <div class="cc-btn" title="Share AR view">📡</div>
+        <div class="cc-btn" title="Screenshot">📸</div>
+        <div class="cc-btn end" title="End call" onclick="endCall()">✕</div>
+      </div>
+      <div class="my-video">
+        <div style="text-align:center;font-size:9px;letter-spacing:1px;color:var(--muted)">YOUR<br>CAMERA</div>
+      </div>
+    </div>
+    <div class="chat-panel">
+      <div class="cp-header">
+        <div class="cp-title">Session Chat</div>
+        <div class="cp-clear">Clear</div>
+      </div>
+      <div class="chat-msgs" id="chatMsgs">
+        <div class="msg expert">
+          <div class="msg-bubble">Hi Rahul! I can see the fault data. The 4.2g vibration on CNC-003 looks like a bearing race failure. Let's walk through it.</div>
+          <div class="msg-time">09:38:22</div>
+        </div>
+        <div class="msg user">
+          <div class="msg-bubble">Thanks Prashant. I've already run the AR scan — component overlay is showing the spindle bearing highlighted in red.</div>
+          <div class="msg-time">09:38:45</div>
+        </div>
+        <div class="msg expert">
+          <div class="msg-bubble">Good. First — engage LOTO before you do anything. Then remove the top access panel (4× T40 bolts). I'll guide you through the bearing swap live.</div>
+          <div class="msg-time">09:39:02</div>
+        </div>
+        <div class="msg user">
+          <div class="msg-bubble">LOTO applied, starting on the panel now.</div>
+          <div class="msg-time">09:39:20</div>
+        </div>
+        <div class="msg expert">
+          <div class="msg-bubble">Perfect. Once the panel's off, look for discoloration on the inner bearing race — that'll confirm the diagnosis.</div>
+          <div class="msg-time">09:39:38</div>
+        </div>
+      </div>
+      <div class="chat-input-row">
+        <input class="chat-input" id="chatInputField" type="text" placeholder="Type a message..." onkeydown="if(event.key==='Enter')sendMsg()">
+        <button class="chat-send" onclick="sendMsg()">Send</button>
+      </div>
+    </div>
+  </div>
+</div>
 
-    function goTo(n) {
-      document.getElementById('s' + current).classList.remove('active');
-      document.getElementById('s' + n).classList.add('active');
+<!-- ══════════════════════════════
+     7. HISTORY
+══════════════════════════════ -->
+<div id="historyScreen" class="screen">
+  <div class="topbar">
+    <div class="logo">
+      <div class="logo-hex" style="width:26px;height:26px"></div>
+      <div class="logo-name" style="font-size:15px">ARCNC</div>
+    </div>
+    <div class="topbar-nav">
+      <div class="tn" onclick="goTo('dashScreen')">DASHBOARD</div>
+      <div class="tn active">HISTORY</div>
+      <div class="tn" onclick="goTo('expertScreen')">EXPERTS</div>
+    </div>
+    <div class="topbar-right">
+      <button onclick="goTo('dashScreen')" style="background:transparent;border:1px solid var(--border);border-radius:7px;padding:6px 12px;font-family:var(--font);font-size:11px;letter-spacing:1px;color:var(--muted);cursor:pointer">← Dashboard</button>
+    </div>
+  </div>
+  <div class="hist-body">
+    <div class="pg-header">
+      <div class="pg-title">Diagnosis History</div>
+      <div class="pg-sub">ALL MACHINES · ALL TIME · 14 RECORDS</div>
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+      <div style="display:flex;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:3px">
+        <button style="padding:6px 14px;background:var(--accent);border:none;border-radius:5px;font-family:var(--font);font-size:11px;letter-spacing:1px;color:#fff;cursor:pointer">All</button>
+        <button style="padding:6px 14px;background:transparent;border:none;font-family:var(--font);font-size:11px;letter-spacing:1px;color:var(--muted);cursor:pointer">Resolved</button>
+        <button style="padding:6px 14px;background:transparent;border:none;font-family:var(--font);font-size:11px;letter-spacing:1px;color:var(--muted);cursor:pointer">Open</button>
+        <button style="padding:6px 14px;background:transparent;border:none;font-family:var(--font);font-size:11px;letter-spacing:1px;color:var(--muted);cursor:pointer">Expert</button>
+      </div>
+      <input type="text" placeholder="Search diagnoses..." style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-family:var(--font);font-size:12px;color:var(--text);outline:none;min-width:200px">
+    </div>
+    <div class="history-grid">
+      <div class="hist-card" onclick="goTo('diagScreen')">
+        <div class="hc-top"><div><div class="hc-machine">CNC-003</div><div style="font-size:11px;letter-spacing:1px;color:var(--muted)">Bay C</div></div><div><span class="status-pill pill-crit"><span class="pill-dot"></span>OPEN</span></div></div>
+        <div class="hc-tags"><span class="hc-tag">vibration</span><span class="hc-tag">bearing</span><span class="hc-tag">critical</span></div>
+        <div class="hc-issue">High vibration on spindle bearing (4.2g). Bearing replacement required.</div>
+        <div class="hc-footer"><div class="hc-date" style="font-family:var(--mono);font-size:10px;color:var(--muted)">21 Apr 2026 · 09:38</div><div class="hc-replay">View →</div></div>
+      </div>
+      <div class="hist-card">
+        <div class="hc-top"><div><div class="hc-machine">CNC-002</div><div style="font-size:11px;letter-spacing:1px;color:var(--muted)">Bay C</div></div><div><span class="status-pill pill-warn"><span class="pill-dot"></span>MONITORING</span></div></div>
+        <div class="hc-tags"><span class="hc-tag">thermal</span><span class="hc-tag">bearing</span></div>
+        <div class="hc-issue">Bearing temperature elevated to 87°C. Under observation, lubrication applied.</div>
+        <div class="hc-footer"><div class="hc-date" style="font-family:var(--mono);font-size:10px;color:var(--muted)">20 Apr 2026 · 14:22</div><div class="hc-replay">View →</div></div>
+      </div>
+      <div class="hist-card">
+        <div class="hc-top"><div><div class="hc-machine">CNC-001</div><div style="font-size:11px;letter-spacing:1px;color:var(--muted)">Bay C</div></div><div><span class="status-pill pill-ok"><span class="pill-dot"></span>RESOLVED</span></div></div>
+        <div class="hc-tags"><span class="hc-tag">coolant</span><span class="hc-tag">flow</span><span class="hc-tag">filter</span></div>
+        <div class="hc-issue">Coolant pump flow low (12 L/min). Replaced clogged inline filter.</div>
+        <div class="hc-footer"><div class="hc-date" style="font-family:var(--mono);font-size:10px;color:var(--muted)">20 Apr 2026 · 08:15</div><div class="hc-replay">View →</div></div>
+      </div>
+      <div class="hist-card">
+        <div class="hc-top"><div><div class="hc-machine">CNC-003</div><div style="font-size:11px;letter-spacing:1px;color:var(--muted)">Bay C</div></div><div><span class="status-pill pill-ok"><span class="pill-dot"></span>RESOLVED</span></div></div>
+        <div class="hc-tags"><span class="hc-tag">vibration</span><span class="hc-tag">spindle</span></div>
+        <div class="hc-issue">Spindle imbalance causing 3.1g vibration. Re-balanced at 12 Mar 2026.</div>
+        <div class="hc-footer"><div class="hc-date" style="font-family:var(--mono);font-size:10px;color:var(--muted)">12 Mar 2026 · 11:05</div><div class="hc-replay">View →</div></div>
+      </div>
+      <div class="hist-card">
+        <div class="hc-top"><div><div class="hc-machine">CNC-004</div><div style="font-size:11px;letter-spacing:1px;color:var(--muted)">Bay D</div></div><div><span class="status-pill pill-ok"><span class="pill-dot"></span>RESOLVED</span></div></div>
+        <div class="hc-tags"><span class="hc-tag">axis</span><span class="hc-tag">servo</span></div>
+        <div class="hc-issue">X-axis servo drive fault. Expert assist — drive board replaced on 5 Feb 2026.</div>
+        <div class="hc-footer"><div class="hc-date" style="font-family:var(--mono);font-size:10px;color:var(--muted)">05 Feb 2026 · 16:30</div><div class="hc-replay">View →</div></div>
+      </div>
+      <div class="hist-card" style="background:linear-gradient(135deg,rgba(59,130,246,0.04),var(--card));border-style:dashed;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;cursor:pointer" onclick="goTo('arScreen')">
+        <div style="font-size:24px">+</div>
+        <div style="font-size:12px;letter-spacing:1px;color:var(--muted)">NEW SCAN</div>
+      </div>
+    </div>
+  </div>
+</div>
 
-      const dots = document.querySelectorAll('.nav-dot');
-      dots[current].classList.remove('active');
-      dots[n].classList.add('active');
+<script>
+// ── NAVIGATION ──
+function goTo(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if(id==='arScreen') setTimeout(initAR,80);
+  if(id==='diagScreen') setTimeout(initDiagCanvas,80);
+  if(id==='expertScreen') startCallTimer();
+  if(id==='fixScreen') currentStep=0, renderStep();
+}
 
-      const fnodes = document.querySelectorAll('.flow-num');
-      fnodes[current].classList.remove('active');
-      fnodes[current].classList.add(current < n ? 'done' : 'idle');
-      fnodes[n].classList.remove('idle', 'done');
-      fnodes[n].classList.add('active');
+// ── LOGIN ──
+function switchTab(btn, formId){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('login-form').style.display = formId==='login-form'?'block':'none';
+  document.getElementById('signup-form').style.display = formId==='signup-form'?'block':'none';
+}
+function attemptLogin(){
+  const pass = document.getElementById('loginPass').value;
+  if(pass==='wrong'){
+    document.getElementById('loginPass').classList.add('error');
+    document.getElementById('loginError').style.display='block';
+    document.getElementById('loginPass').animate([{transform:'translateX(-5px)'},{transform:'translateX(5px)'},{transform:'translateX(0)'}],{duration:300});
+  } else {
+    goTo('dashScreen');
+  }
+}
 
-      current = n;
-      document.getElementById('screen-label').textContent =
-        'Screen ' + (n + 1) + ' of 6 — ' + labels[n];
-    }
-  </script>
+// ── AR CANVAS ──
+let arAnimId = null;
+function initAR(){
+  const canvas = document.getElementById('arCanvas');
+  if(!canvas) return;
+  const wrap = document.getElementById('arWrap');
+  canvas.width = wrap.offsetWidth;
+  canvas.height = wrap.offsetHeight;
+  const ctx = canvas.getContext('2d');
+  const W=canvas.width, H=canvas.height, CX=W/2, CY=H/2;
+  let aY=0.4, aX=-0.18, t=0, drag=false, lx=0, ly=0;
+  canvas.onmousedown=e=>{drag=true;lx=e.clientX;ly=e.clientY};
+  canvas.onmousemove=e=>{if(!drag)return;aY+=(e.clientX-lx)*0.012;aX+=(e.clientY-ly)*0.008;aX=Math.max(-0.6,Math.min(0.6,aX));lx=e.clientX;ly=e.clientY};
+  canvas.onmouseup=()=>drag=false;
+  canvas.onmouseleave=()=>drag=false;
+  function proj(x,y,z){const cY=Math.cos(aY),sY=Math.sin(aY),cX=Math.cos(aX),sX=Math.sin(aX);let rx=x*cY-z*sY,rz=x*sY+z*cY,ry=y*cX-rz*sX;rz=y*sX+rz*cX;const f=500,s=f/(f+rz+200);return{sx:CX+rx*s,sy:CY+ry*s,sc:s,z:rz}}
+  function dEdge(pts,c,lw,a){ctx.save();ctx.globalAlpha=a;ctx.strokeStyle=c;ctx.lineWidth=lw;ctx.beginPath();pts.forEach((p,i)=>{const r=proj(p[0],p[1],p[2]);i===0?ctx.moveTo(r.sx,r.sy):ctx.lineTo(r.sx,r.sy)});ctx.stroke();ctx.restore()}
+  function dFace(pts,c,a){ctx.save();ctx.globalAlpha=a;ctx.fillStyle=c;ctx.beginPath();pts.forEach((p,i)=>{const r=proj(p[0],p[1],p[2]);i===0?ctx.moveTo(r.sx,r.sy):ctx.lineTo(r.sx,r.sy)});ctx.closePath();ctx.fill();ctx.restore()}
+  function bEdges(x,y,z,w,h,d){const x2=x+w,y2=y+h,z2=z+d;return[[[x,y,z],[x2,y,z]],[[x2,y,z],[x2,y2,z]],[[x2,y2,z],[x,y2,z]],[[x,y2,z],[x,y,z]],[[x,y,z2],[x2,y,z2]],[[x2,y,z2],[x2,y2,z2]],[[x2,y2,z2],[x,y2,z2]],[[x,y2,z2],[x,y,z2]],[[x,y,z],[x,y,z2]],[[x2,y,z],[x2,y,z2]],[[x2,y2,z],[x2,y2,z2]],[[x,y2,z],[x,y,z2]]]}
+  function bFaces(x,y,z,w,h,d){const x2=x+w,y2=y+h,z2=z+d;return[[[x,y,z],[x2,y,z],[x2,y2,z],[x,y2,z]],[[x,y,z2],[x2,y,z2],[x2,y2,z2],[x,y2,z2]],[[x,y,z],[x,y,z2],[x,y2,z2],[x,y2,z]],[[x2,y,z],[x2,y,z2],[x2,y2,z2],[x2,y2,z]],[[x,y,z],[x2,y,z],[x2,y,z2],[x,y,z2]],[[x,y2,z],[x2,y2,z],[x2,y2,z2],[x,y2,z2]]]}
+  function cyl(cx,y1,cz,rx,ry,h,c,ec,fa,ea,seg=14){const tp=[],bt=[];for(let i=0;i<seg;i++){const a=(i/seg)*Math.PI*2;tp.push([cx+Math.cos(a)*rx,y1,cz+Math.sin(a)*ry]);bt.push([cx+Math.cos(a)*rx,y1+h,cz+Math.sin(a)*ry])}for(let i=0;i<seg;i++){const j=(i+1)%seg;dFace([tp[i],tp[j],bt[j],bt[i]],c,fa)}dFace(tp,c,fa);dFace(bt,c,fa);ctx.save();ctx.globalAlpha=ea;ctx.strokeStyle=ec;ctx.lineWidth=0.8;ctx.beginPath();tp.forEach((p,i)=>{const r=proj(p[0],p[1],p[2]);i===0?ctx.moveTo(r.sx,r.sy):ctx.lineTo(r.sx,r.sy)});ctx.closePath();ctx.stroke();ctx.beginPath();bt.forEach((p,i)=>{const r=proj(p[0],p[1],p[2]);i===0?ctx.moveTo(r.sx,r.sy):ctx.lineTo(r.sx,r.sy)});ctx.closePath();ctx.stroke();tp.forEach((p,i)=>{dEdge([p,bt[i]],ec,0.6,ea)});ctx.restore()}
+  function lbl(x,y,z,txt,c,a){const r=proj(x,y,z);ctx.save();ctx.globalAlpha=a;ctx.fillStyle=c;ctx.font=`500 ${Math.round(11*r.sc*1.4)}px 'IBM Plex Mono',monospace`;ctx.textAlign='center';ctx.fillText(txt,r.sx,r.sy);ctx.restore()}
+  function dot(x,y,z,r,c,a){const pr=proj(x,y,z);ctx.save();ctx.globalAlpha=a;ctx.fillStyle=c;ctx.beginPath();ctx.arc(pr.sx,pr.sy,r*pr.sc*1.4,0,Math.PI*2);ctx.fill();ctx.restore()}
+  function frame(){
+    ctx.clearRect(0,0,W,H);ctx.fillStyle='#070b12';ctx.fillRect(0,0,W,H);
+    ctx.save();ctx.strokeStyle='#1a2840';ctx.lineWidth=0.5;ctx.globalAlpha=0.3;
+    for(let i=-5;i<=5;i++){const a=proj(i*30,80,-150),b=proj(i*30,80,150),c2=proj(-150,80,i*30),d=proj(150,80,i*30);ctx.beginPath();ctx.moveTo(a.sx,a.sy);ctx.lineTo(b.sx,b.sy);ctx.stroke();ctx.beginPath();ctx.moveTo(c2.sx,c2.sy);ctx.lineTo(d.sx,d.sy);ctx.stroke()}
+    ctx.restore();
+    const pF=0.5+0.5*Math.sin(t*6),pS=0.5+0.5*Math.sin(t*2.5);
+    const ox=-80,oy=-120,oz=-100;
+    bFaces(ox,oy,oz,160,120,200).forEach(f=>dFace(f,'#1a3a5c',0.22*0.55));
+    bEdges(ox,oy,oz,160,120,200).forEach(e=>dEdge(e,'#3b82f6',0.8,0.22*2.2));
+    cyl(0,-60,0,28,28,50,`rgba(100,200,255,${0.08+0.04*pS})`,'#06b6d4',1,0.9);
+    cyl(0,-10,0,16,16,18,`rgba(100,200,255,${0.08+0.04*pS})`,'#67e8f9',0.9,1);
+    lbl(0,-75,0,'Motor','#67e8f9',0.95);dot(0,-65,0,4,'#06b6d4',0.9);
+    const bA=0.7+0.3*pF;
+    cyl(-55,-40,20,18,18,36,`rgba(255,160,50,${0.12+0.08*pF})`,'#f59e0b',1,bA);
+    lbl(-55,-52,20,'Bearing','#f59e0b',bA);dot(-55,-42,20,5,'#f59e0b',bA);
+    for(let i=0;i<4;i++){const ga=Math.PI*2*(i/4)+t,gx=Math.cos(ga)*32,gz=Math.sin(ga)*32;cyl(gx,-50,gz,8,8,8,'rgba(80,220,180,0.25)','#34d399',1,0.7,10)}
+    lbl(0,5,40,'Gears','#34d399',0.7);
+    const vA=0.5+0.5*pF;
+    bFaces(40,-30,-60,30,20,30).forEach(f=>dFace(f,`rgba(255,80,60,${0.1+0.1*pF})`,1));
+    bEdges(40,-30,-60,30,20,30).forEach(e=>dEdge(e,'#ef4444',1,vA));
+    lbl(55,-38,-45,'Vibration','#ef4444',vA);
+    const p1=proj(0,-10,9),p2=proj(-55,-40,20);
+    ctx.save();ctx.globalAlpha=0.4;ctx.strokeStyle='#f59e0b';ctx.lineWidth=0.7;ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(p1.sx,p1.sy);ctx.lineTo(p2.sx,p2.sy);ctx.stroke();ctx.restore();
+    const p3=proj(0,-10,0),p4=proj(55,-20,-45);
+    ctx.save();ctx.globalAlpha=0.35*vA;ctx.strokeStyle='#ef4444';ctx.lineWidth=0.7;ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(p3.sx,p3.sy);ctx.lineTo(p4.sx,p4.sy);ctx.stroke();ctx.restore();
+    ctx.save();ctx.globalAlpha=0.85;
+    [{p:proj(-80,-60,20),text:'62°C',color:'#34d399',bg:'rgba(10,30,20,0.92)'},{p:proj(-55,-55,20),text:'87°C ▲',color:'#f59e0b',bg:'rgba(30,20,5,0.92)'},{p:proj(55,-35,-45),text:'4.2g !!',color:'#ef4444',bg:'rgba(30,5,5,0.92)'}].forEach(ind=>{const bw=56,bh=18;ctx.fillStyle=ind.bg;ctx.beginPath();ctx.roundRect(ind.p.sx-bw/2,ind.p.sy-bh/2,bw,bh,4);ctx.fill();ctx.font='500 11px IBM Plex Mono,monospace';ctx.fillStyle=ind.color;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(ind.text,ind.p.sx,ind.p.sy)});
+    ctx.restore();
+    t+=0.016;if(!drag)aY+=0.005;
+    arAnimId=requestAnimationFrame(frame);
+  }
+  if(arAnimId) cancelAnimationFrame(arAnimId);
+  frame();
+  let arSec=0;
+  clearInterval(window._arTimer);
+  window._arTimer=setInterval(()=>{arSec++;const m=String(Math.floor(arSec/60)).padStart(2,'0'),s=String(arSec%60).padStart(2,'0');const el=document.getElementById('arTimer');if(el)el.textContent=`${m}:${s}`},1000);
+}
 
+// ── AR PROCESSING ──
+function startProcessing(){
+  document.getElementById('processingOverlay').style.display='flex';
+  document.getElementById('arStatusText').textContent='Analysing machine geometry...';
+  const steps=['ps1','ps2','ps3','ps4'];
+  let i=0;
+  const iv=setInterval(()=>{
+    if(i>0) document.getElementById(steps[i-1]).className='proc-step done';
+    if(i<steps.length){document.getElementById(steps[i]).className='proc-step active';i++}
+    else{clearInterval(iv);setTimeout(()=>{document.getElementById('processingOverlay').style.display='none';goTo('diagScreen')},600)}
+  },900);
+}
+
+// ── DIAG CANVAS ──
+function initDiagCanvas(){
+  const canvas=document.getElementById('diagCanvas');
+  if(!canvas)return;
+  const wrap=canvas.parentElement;
+  canvas.width=wrap.offsetWidth;
+  canvas.height=wrap.offsetHeight;
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width,H=canvas.height,CX=W/2,CY=H/2;
+  let aY=0.4,aX=-0.18,t=0,drag=false,lx=0,ly=0;
+  canvas.onmousedown=e=>{drag=true;lx=e.clientX;ly=e.clientY};
+  canvas.onmousemove=e=>{if(!drag)return;aY+=(e.clientX-lx)*0.012;aX+=(e.clientY-ly)*0.008;aX=Math.max(-0.6,Math.min(0.6,aX));lx=e.clientX;ly=e.clientY};
+  canvas.onmouseup=()=>drag=false;canvas.onmouseleave=()=>drag=false;
+  function proj(x,y,z){const cY=Math.cos(aY),sY=Math.sin(aY),cX=Math.cos(aX),sX=Math.sin(aX);let rx=x*cY-z*sY,rz=x*sY+z*cY,ry=y*cX-rz*sX;rz=y*sX+rz*cX;const f=500,s=f/(f+rz+200);return{sx:CX+rx*s,sy:CY+ry*s,sc:s,z:rz}}
+  function dE(pts,c,lw,a){ctx.save();ctx.globalAlpha=a;ctx.strokeStyle=c;ctx.lineWidth=lw;ctx.beginPath();pts.forEach((p,i)=>{const r=proj(p[0],p[1],p[2]);i===0?ctx.moveTo(r.sx,r.sy):ctx.lineTo(r.sx,r.sy)});ctx.stroke();ctx.restore()}
+  function dF(pts,c,a){ctx.save();ctx.globalAlpha=a;ctx.fillStyle=c;ctx.beginPath();pts.forEach((p,i)=>{const r=proj(p[0],p[1],p[2]);i===0?ctx.moveTo(r.sx,r.sy):ctx.lineTo(r.sx,r.sy)});ctx.closePath();ctx.fill();ctx.restore()}
+  function bE(x,y,z,w,h,d){const x2=x+w,y2=y+h,z2=z+d;return[[[x,y,z],[x2,y,z]],[[x2,y,z],[x2,y2,z]],[[x2,y2,z],[x,y2,z]],[[x,y2,z],[x,y,z]],[[x,y,z2],[x2,y,z2]],[[x2,y,z2],[x2,y2,z2]],[[x2,y2,z2],[x,y2,z2]],[[x,y2,z2],[x,y,z2]],[[x,y,z],[x,y,z2]],[[x2,y,z],[x2,y,z2]],[[x2,y2,z],[x2,y2,z2]],[[x,y2,z],[x,y,z2]]]}
+  function bF(x,y,z,w,h,d){const x2=x+w,y2=y+h,z2=z+d;return[[[x,y,z],[x2,y,z],[x2,y2,z],[x,y2,z]],[[x,y,z2],[x2,y,z2],[x2,y2,z2],[x,y2,z2]],[[x,y,z],[x,y,z2],[x,y2,z2],[x,y2,z]],[[x2,y,z],[x2,y,z2],[x2,y2,z2],[x2,y2,z]],[[x,y,z],[x2,y,z],[x2,y,z2],[x,y,z2]],[[x,y2,z],[x2,y2,z],[x2,y2,z2],[x,y2,z2]]]}
+  function cyl(cx,y1,cz,rx,ry,h,c,ec,fa,ea,seg=14){const tp=[],bt=[];for(let i=0;i<seg;i++){const a=(i/seg)*Math.PI*2;tp.push([cx+Math.cos(a)*rx,y1,cz+Math.sin(a)*ry]);bt.push([cx+Math.cos(a)*rx,y1+h,cz+Math.sin(a)*ry])}for(let i=0;i<seg;i++){const j=(i+1)%seg;dF([tp[i],tp[j],bt[j],bt[i]],c,fa)}dF(tp,c,fa);dF(bt,c,fa);ctx.save();ctx.globalAlpha=ea;ctx.strokeStyle=ec;ctx.lineWidth=0.8;ctx.beginPath();tp.forEach((p,i)=>{const r=proj(p[0],p[1],p[2]);i===0?ctx.moveTo(r.sx,r.sy):ctx.lineTo(r.sx,r.sy)});ctx.closePath();ctx.stroke();ctx.beginPath();bt.forEach((p,i)=>{const r=proj(p[0],p[1],p[2]);i===0?ctx.moveTo(r.sx,r.sy):ctx.lineTo(r.sx,r.sy)});ctx.closePath();ctx.stroke();tp.forEach((p,i)=>{dE([p,bt[i]],ec,0.6,ea)});ctx.restore()}
+  function lbl(x,y,z,txt,c,a){const r=proj(x,y,z);ctx.save();ctx.globalAlpha=a;ctx.fillStyle=c;ctx.font=`500 ${Math.round(11*r.sc*1.4)}px IBM Plex Mono,monospace`;ctx.textAlign='center';ctx.fillText(txt,r.sx,r.sy);ctx.restore()}
+  function dot(x,y,z,r,c,a){const pr=proj(x,y,z);ctx.save();ctx.globalAlpha=a;ctx.fillStyle=c;ctx.beginPath();ctx.arc(pr.sx,pr.sy,r*pr.sc*1.4,0,Math.PI*2);ctx.fill();ctx.restore()}
+  let diagAnim;
+  function frame(){
+    ctx.clearRect(0,0,W,H);ctx.fillStyle='#070b12';ctx.fillRect(0,0,W,H);
+    ctx.save();ctx.strokeStyle='#1a2840';ctx.lineWidth=0.5;ctx.globalAlpha=0.2;
+    for(let i=-5;i<=5;i++){const a=proj(i*30,80,-150),b=proj(i*30,80,150),c2=proj(-150,80,i*30),d=proj(150,80,i*30);ctx.beginPath();ctx.moveTo(a.sx,a.sy);ctx.lineTo(b.sx,b.sy);ctx.stroke();ctx.beginPath();ctx.moveTo(c2.sx,c2.sy);ctx.lineTo(d.sx,d.sy);ctx.stroke()}
+    ctx.restore();
+    const pF=0.5+0.5*Math.sin(t*6),pS=0.5+0.5*Math.sin(t*2.5);
+    bF(-80,-120,-100,160,120,200).forEach(f=>dF(f,'#1a3a5c',0.12));
+    bE(-80,-120,-100,160,120,200).forEach(e=>dE(e,'#3b82f6',0.8,0.5));
+    cyl(0,-60,0,28,28,50,`rgba(100,200,255,${0.08+0.04*pS})`,'#06b6d4',1,0.9);
+    cyl(0,-10,0,16,16,18,`rgba(100,200,255,${0.08})`,'#67e8f9',0.9,1);
+    lbl(0,-75,0,'Motor','#67e8f9',0.9);dot(0,-65,0,4,'#06b6d4',0.9);
+    const bA=0.7+0.3*pF;
+    cyl(-55,-40,20,18,18,36,`rgba(255,160,50,${0.12+0.08*pF})`,'#f59e0b',1,bA);
+    lbl(-55,-52,20,'Bearing','#f59e0b',bA);
+    for(let i=0;i<4;i++){const ga=Math.PI*2*(i/4)+t,gx=Math.cos(ga)*32,gz=Math.sin(ga)*32;cyl(gx,-50,gz,8,8,8,'rgba(80,220,180,0.25)','#34d399',1,0.7,10)}
+    // PULSING CRIT HIGHLIGHT
+    const critScale=1+0.08*Math.sin(t*8);
+    const vA=0.6+0.4*pF;
+    bF(40*critScale,-30,-60*critScale,30,20,30).forEach(f=>dF(f,`rgba(255,40,40,${0.18+0.12*pF})`,1));
+    bE(40*critScale,-30,-60*critScale,30,20,30).forEach(e=>dE(e,'#ef4444',1.5,vA));
+    lbl(55,-38,-45,'FAULT','#ef4444',vA);
+    // CRIT GLOW
+    const gp=proj(55,-25,-45);
+    ctx.save();ctx.globalAlpha=0.15*pF;const grad=ctx.createRadialGradient(gp.sx,gp.sy,0,gp.sx,gp.sy,40);grad.addColorStop(0,'#ef4444');grad.addColorStop(1,'transparent');ctx.fillStyle=grad;ctx.beginPath();ctx.arc(gp.sx,gp.sy,40,0,Math.PI*2);ctx.fill();ctx.restore();
+    t+=0.016;if(!drag)aY+=0.004;
+    diagAnim=requestAnimationFrame(frame);
+  }
+  frame();
+}
+
+// ── DIAG TABS ──
+function switchDrTab(btn, tabId){
+  document.querySelectorAll('.dr-tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('#steps-tab,#details-tab,#history-tab').forEach(t=>t.style.display='none');
+  document.getElementById(tabId).style.display='block';
+}
+
+// ── FIX STEPS ──
+const steps=[
+  {tag:'SAFETY FIRST',title:'Isolate the machine',desc:'Engage the E-STOP button on CNC-003. Apply lockout/tagout (LOTO) to the main power isolator. Notify shift supervisor of the shutdown. Do not proceed until lock is confirmed.',tools:['🔒 E-STOP button','🏷 LOTO kit'],check:'I have isolated the machine and applied LOTO'},
+  {tag:'ACCESS',title:'Remove spindle cover',desc:'Unscrew 4× M8 bolts on the top access panel using a T40 Torx driver. Carefully lift the panel and set aside. You should now see the spindle motor and bearing assembly.',tools:['🔧 T40 Torx driver','📦 Bolt tray'],check:'Access panel removed, spindle assembly visible'},
+  {tag:'INSPECTION',title:'Inspect bearing race',desc:'Using an inspection light, examine the inner and outer bearing race for visible pitting, discolouration (blue/brown tint), or scoring. The failure is confirmed by visual damage.',tools:['🔦 Inspection light','📷 Document with photo'],check:'Bearing race inspected and fault confirmed'},
+  {tag:'REPLACEMENT',title:'Replace bearing assembly',desc:'Remove the old bearing using a bearing puller tool. Clean the bearing seat with isopropyl alcohol. Press-fit the replacement SKF 6208-2Z bearing using a press tool or dead-blow mallet.',tools:['🛠 Bearing puller','🔩 SKF 6208-2Z','🧴 Isopropyl alcohol'],check:'New bearing installed and seated correctly'},
+  {tag:'VERIFICATION',title:'Test and verify',desc:'Reassemble the cover panel, torquing bolts to 22 Nm. Remove LOTO, restart CNC-003 at 30% speed. Monitor vibration in ARCNC app — reading should drop below 1.0g.',tools:['📊 ARCNC vibration monitor','🔩 Torque wrench 22Nm'],check:'Machine restarted, vibration below 1.0g confirmed'},
+];
+let currentStep=0;
+function renderStep(){
+  const s=steps[currentStep];
+  document.getElementById('stepBgNum').textContent=String(currentStep+1).padStart(2,'0');
+  document.getElementById('stepTag').textContent=s.tag;
+  document.getElementById('stepTitle').textContent=s.title;
+  document.getElementById('stepDesc').textContent=s.desc;
+  document.getElementById('stepTools').innerHTML=s.tools.map(t=>`<div class="tool-chip">${t}</div>`).join('');
+  document.getElementById('checkLabel').textContent=s.check;
+  const cb=document.getElementById('stepCheck');
+  cb.checked=false;
+  document.getElementById('stepCounter').textContent=`Step ${currentStep+1} of ${steps.length}`;
+  document.getElementById('progressBar').style.width=`${((currentStep+1)/steps.length)*100}%`;
+  const prevBtn=document.getElementById('prevBtn');
+  const nextBtn=document.getElementById('nextBtn');
+  prevBtn.style.opacity=currentStep===0?'0.3':'1';
+  prevBtn.style.pointerEvents=currentStep===0?'none':'auto';
+  nextBtn.style.opacity='0.5';
+  nextBtn.style.pointerEvents='none';
+  if(currentStep===steps.length-1){
+    nextBtn.textContent='✓ Mark Complete';
+    nextBtn.className='fn-btn fn-done';
+    nextBtn.onclick=completeRepair;
+  } else {
+    nextBtn.textContent='Next Step →';
+    nextBtn.className='fn-btn fn-next';
+    nextBtn.onclick=nextStep;
+  }
+}
+function enableNext(cb){
+  const nextBtn=document.getElementById('nextBtn');
+  if(cb.checked){nextBtn.style.opacity='1';nextBtn.style.pointerEvents='auto'}
+  else{nextBtn.style.opacity='0.5';nextBtn.style.pointerEvents='none'}
+}
+function nextStep(){if(currentStep<steps.length-1){currentStep++;renderStep()}}
+function prevStep(){if(currentStep>0){currentStep--;renderStep()}}
+function completeRepair(){showToast('✓ Repair logged & saved to history');setTimeout(()=>goTo('dashScreen'),1200)}
+
+// ── EXPERT CALL ──
+let callSec=0, callIv=null;
+function startCallTimer(){
+  clearInterval(callIv); callSec=0;
+  callIv=setInterval(()=>{callSec++;const m=String(Math.floor(callSec/60)).padStart(2,'0'),s=String(callSec%60).padStart(2,'0');const el=document.getElementById('callTimer');if(el)el.textContent=`${m}:${s}`},1000);
+}
+function endCall(){
+  clearInterval(callIv);
+  showToast('✓ Session logged — Issue resolved with expert assistance');
+  setTimeout(()=>goTo('dashScreen'),1200);
+}
+function sendMsg(){
+  const input=document.getElementById('chatInputField');
+  const txt=input.value.trim();
+  if(!txt) return;
+  const msgs=document.getElementById('chatMsgs');
+  const now=new Date();
+  const time=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+  const div=document.createElement('div');
+  div.className='msg user';
+  div.innerHTML=`<div class="msg-bubble">${txt}</div><div class="msg-time">${time}</div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop=msgs.scrollHeight;
+  input.value='';
+  setTimeout(()=>{
+    const replies=["Got it. Let me check that on my end.","Keep going — you're doing great.","That confirms the diagnosis. Proceed to the next step.","Can you send me a photo via the AR share?","Almost there — nearly done."];
+    const rd=document.createElement('div');
+    rd.className='msg expert';
+    rd.innerHTML=`<div class="msg-bubble">${replies[Math.floor(Math.random()*replies.length)]}</div><div class="msg-time">${time}</div>`;
+    msgs.appendChild(rd);
+    msgs.scrollTop=msgs.scrollHeight;
+  },1500);
+}
+
+// ── TOAST ──
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+// ── HIGHLIGHT COMP ──
+function highlightComp(c){ console.log('highlight',c); }
+</script>
 </body>
 </html>
