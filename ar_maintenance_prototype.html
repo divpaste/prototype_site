@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f5f3;
+      color: #1a1a18;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 32px 16px 48px;
+    }
+
+    /* ── Page header ── */
+    .page-header {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    .page-header h1 {
+      font-size: 20px;
+      font-weight: 500;
+      color: #1a1a18;
+    }
+    .page-header p {
+      font-size: 13px;
+      color: #73726c;
+      margin-top: 4px;
+    }
+
+    /* ── Main layout ── */
+    .proto-wrap {
+      display: flex;
+      gap: 28px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      justify-content: center;
+      width: 100%;
+      max-width: 860px;
+    }
+
+    /* ── Phone frame ── */
+    .phone-outer { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+
+    .phone-frame {
+      width: 240px;
+      border: 2px solid #b4b2a9;
+      border-radius: 32px;
+      background: #ffffff;
+      overflow: hidden;
+    }
+
+    .phone-notch {
+      height: 22px;
+      background: #f1efe8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-bottom: 0.5px solid #d3d1c7;
+    }
+    .notch-dot {
+      width: 44px; height: 6px;
+      background: #b4b2a9;
+      border-radius: 3px;
+    }
+
+    .phone-screen { height: 440px; overflow: hidden; position: relative; }
+
+    .screen {
+      height: 440px;
+      display: none;
+      flex-direction: column;
+      background: #ffffff;
+    }
+    .screen.active { display: flex; }
+
+    .screen-bar {
+      height: 38px;
+      background: #f1efe8;
+      border-bottom: 0.5px solid #d3d1c7;
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #1a1a18;
+      flex-shrink: 0;
+    }
+
+    .back-btn {
+      font-size: 12px;
+      color: #185fa5;
+      cursor: pointer;
+      margin-right: 8px;
+      user-select: none;
+    }
+    .back-btn:hover { text-decoration: underline; }
+
+    .screen-body {
+      flex: 1;
+      padding: 12px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    /* ── Wireframe components ── */
+    .wf-label {
+      font-size: 10px;
+      color: #888780;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-top: 2px;
+    }
+
+    .wf-input {
+      width: 100%;
+      padding: 8px 10px;
+      border: 0.5px solid #b4b2a9;
+      border-radius: 8px;
+      background: #f1efe8;
+      font-size: 12px;
+      color: #888780;
+    }
+
+    .wf-btn {
+      width: 100%;
+      padding: 10px;
+      border: 0.5px solid #b4b2a9;
+      border-radius: 8px;
+      background: #ffffff;
+      font-size: 12px;
+      color: #1a1a18;
+      cursor: pointer;
+      text-align: left;
+      transition: background 0.15s;
+      font-family: inherit;
+    }
+    .wf-btn:hover { background: #f1efe8; }
+
+    .wf-btn.primary {
+      background: #e6f1fb;
+      color: #0c447c;
+      border-color: #378add;
+      font-weight: 500;
+      text-align: center;
+    }
+    .wf-btn.primary:hover { background: #b5d4f4; }
+
+    .wf-divider {
+      border: none;
+      border-top: 0.5px solid #d3d1c7;
+      margin: 2px 0;
+    }
+
+    .wf-card {
+      border: 0.5px solid #d3d1c7;
+      border-radius: 8px;
+      padding: 9px 11px;
+      cursor: pointer;
+      background: #ffffff;
+      transition: background 0.15s;
+    }
+    .wf-card:hover { background: #f1efe8; }
+    .wf-card-title { font-size: 12px; font-weight: 500; color: #1a1a18; }
+    .wf-card-sub   { font-size: 11px; color: #5f5e5a; margin-top: 2px; }
+
+    /* ── Status dots ── */
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+    .dot-ok   { background: #1d9e75; }
+    .dot-warn { background: #ba7517; }
+    .dot-bad  { background: #e24b4a; }
+
+    /* ── AR viewport ── */
+    .ar-viewport {
+      border-radius: 8px;
+      border: 0.5px dashed #b4b2a9;
+      background: #f1efe8;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      position: relative;
+      min-height: 160px;
+    }
+    .ar-viewport.active-border { border-style: solid; border-color: #378add; }
+    .ar-label {
+      position: absolute;
+      bottom: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.55);
+      color: #fff;
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+
+    /* ── Sensor rows ── */
+    .sensor-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .sensor-name { font-size: 11px; color: #5f5e5a; }
+    .sensor-val  { font-size: 11px; font-weight: 500; }
+    .val-ok   { color: #0f6e56; }
+    .val-warn { color: #854f0b; }
+    .val-bad  { color: #a32d2d; }
+
+    /* ── Alert boxes ── */
+    .alert-box {
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 11px;
+      line-height: 1.5;
+    }
+    .alert-warn { background: #faeeda; color: #633806; border: 0.5px solid #ba7517; }
+    .alert-ok   { background: #e1f5ee; color: #085041; border: 0.5px solid #1d9e75; }
+
+    /* ── Expert cards ── */
+    .expert-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .expert-avatar {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      background: #e6f1fb;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 500;
+      color: #0c447c;
+    }
+    .expert-avatar.green { background: #eaf3de; color: #27500a; }
+    .expert-info { flex: 1; }
+    .expert-name { font-size: 12px; font-weight: 500; color: #1a1a18; }
+    .expert-spec { font-size: 10px; color: #5f5e5a; }
+    .avail-badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 20px;
+      background: #e1f5ee;
+      color: #0f6e56;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .busy-badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 20px;
+      background: #f1efe8;
+      color: #888780;
+      white-space: nowrap;
+    }
+
+    /* ── Call screen ── */
+    .call-avatar {
+      width: 60px; height: 60px;
+      border-radius: 50%;
+      background: #e6f1fb;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      font-weight: 500;
+      color: #0c447c;
+      margin: 0 auto;
+    }
+    .call-name   { font-size: 14px; font-weight: 500; color: #1a1a18; text-align: center; }
+    .call-status { font-size: 11px; color: #5f5e5a; text-align: center; }
+
+    .call-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 4px;
+    }
+    .call-btn {
+      width: 44px; height: 44px;
+      border-radius: 50%;
+      border: 0.5px solid #d3d1c7;
+      background: #f1efe8;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s;
+    }
+    .call-btn:hover { background: #d3d1c7; }
+    .call-btn.end { background: #fcebeb; border-color: #e24b4a; }
+    .call-btn.end:hover { background: #f7c1c1; }
+
+    .annotation-box {
+      border: 1.5px dashed #378add;
+      border-radius: 6px;
+      padding: 6px 9px;
+      background: rgba(55,138,221,0.06);
+      font-size: 10px;
+      color: #0c447c;
+      line-height: 1.5;
+    }
+
+    /* ── App logo on login ── */
+    .app-logo {
+      width: 52px; height: 52px;
+      border: 2px solid #d3d1c7;
+      border-radius: 14px;
+      background: #f1efe8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      font-weight: 500;
+      color: #5f5e5a;
+      margin: 0 auto 8px;
+    }
+
+    /* ── Navigation dots ── */
+    .screen-nav {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+    }
+    .nav-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 0.5px solid #b4b2a9;
+      background: #d3d1c7;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .nav-dot.active { background: #378add; border-color: #378add; }
+    .nav-dot:hover  { background: #85b7eb; border-color: #378add; }
+
+    .screen-label-text {
+      text-align: center;
+      font-size: 11px;
+      color: #888780;
+      margin-top: 2px;
+    }
+
+    /* ── Flow panel ── */
+    .flow-panel {
+      flex: 1;
+      min-width: 240px;
+      max-width: 360px;
+    }
+    .flow-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: #1a1a18;
+      margin-bottom: 14px;
+    }
+    .flow-step {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      margin-bottom: 4px;
+    }
+    .flow-num {
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 500;
+      margin-top: 1px;
+    }
+    .flow-num.active { background: #e6f1fb; color: #0c447c; border: 1.5px solid #378add; }
+    .flow-num.done   { background: #e1f5ee; color: #0f6e56; border: 1.5px solid #1d9e75; }
+    .flow-num.idle   { background: #f1efe8; color: #888780; border: 0.5px solid #d3d1c7; }
+    .flow-label { font-size: 12px; font-weight: 500; color: #1a1a18; }
+    .flow-sub   { font-size: 11px; color: #5f5e5a; margin-top: 2px; line-height: 1.4; }
+    .flow-connector {
+      width: 1.5px; height: 14px;
+      background: #d3d1c7;
+      margin-left: 11px;
+    }
+
+    /* ── Problem solved panel ── */
+    .problem-panel {
+      border: 0.5px solid #d3d1c7;
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-top: 16px;
+      background: #ffffff;
+    }
+    .problem-title {
+      font-size: 10px;
+      font-weight: 500;
+      color: #888780;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+    .problem-row {
+      display: flex;
+      gap: 6px;
+      align-items: flex-start;
+      margin-bottom: 5px;
+      font-size: 11px;
+    }
+    .p-before { color: #a32d2d; flex: 1; }
+    .p-arrow  { color: #b4b2a9; }
+    .p-after  { color: #0f6e56; flex: 1; }
+
+    /* ── Utility ── */
+    .row { display: flex; align-items: center; justify-content: space-between; }
+    .muted { font-size: 10px; color: #888780; }
+    .center { text-align: center; }
+    .mt4 { margin-top: 4px; }
+    .mt8 { margin-top: 8px; }
+  </style>
+</head>
+<body>
+
+  <div class="page-header">
+    <h1>AR-Based Intelligent Maintenance System<h1><p> Clickable app flow · 6 screens </p>
+  </div>
+
+  <div class="proto-wrap">
+
+    <!-- ── Phone ── -->
+    <div class="phone-outer">
+      <div class="phone-frame">
+        <div class="phone-notch"><div class="notch-dot"></div></div>
+        <div class="phone-screen">
+
+          <!-- Screen 0: Login -->
+          <div class="screen active" id="s0">
+            <div class="screen-bar">ArMaint</div>
+            <div class="screen-body" style="justify-content:center;">
+              <div class="center">
+                <div class="app-logo">AR</div>
+                <div style="font-size:15px;font-weight:500;color:#1a1a18;">ArMaint</div>
+                <div class="muted mt4">Industrial AR Maintenance</div>
+              </div>
+              <div class="wf-label mt8">Email</div>
+              <div class="wf-input">technician@tatamotors.com</div>
+              <div class="wf-label mt4">Password</div>
+              <div class="wf-input">••••••••</div>
+              <button class="wf-btn primary mt8" onclick="goTo(1)">Log in</button>
+              <div class="muted center">30-day free trial — no card needed</div>
+            </div>
+          </div>
+
+          <!-- Screen 1: Dashboard -->
+          <div class="screen" id="s1">
+            <div class="screen-bar">
+              <span>Dashboard</span>
+              <span style="margin-left:auto;font-size:10px;color:#888780;">Tata Motors — Line 3</span>
+            </div>
+            <div class="screen-body">
+              <div class="wf-label">Active machines</div>
+              <div class="wf-card" onclick="goTo(2)">
+                <div class="row">
+                  <div class="wf-card-title">CNC Lathe — Unit 04</div>
+                  <span class="status-dot dot-warn"></span>
+                </div>
+                <div class="wf-card-sub">Vibration warning · Tap to inspect</div>
+              </div>
+              <div class="wf-card" onclick="goTo(2)">
+                <div class="row">
+                  <div class="wf-card-title">Hydraulic Press — Unit 07</div>
+                  <span class="status-dot dot-ok"></span>
+                </div>
+                <div class="wf-card-sub">All sensors normal</div>
+              </div>
+              <div class="wf-card" onclick="goTo(2)">
+                <div class="row">
+                  <div class="wf-card-title">Conveyor Belt — Unit 12</div>
+                  <span class="status-dot dot-bad"></span>
+                </div>
+                <div class="wf-card-sub">Motor overheating — critical</div>
+              </div>
+              <hr class="wf-divider">
+              <button class="wf-btn primary" onclick="goTo(2)">Scan a machine with AR</button>
+            </div>
+          </div>
+
+          <!-- Screen 2: AR Scanner -->
+          <div class="screen" id="s2">
+            <div class="screen-bar">
+              <span class="back-btn" onclick="goTo(1)">← Back</span>
+              AR Scanner
+            </div>
+            <div class="screen-body">
+              <div class="ar-viewport">
+                <svg width="90" height="90" viewBox="0 0 90 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="10" y="10" width="70" height="70" rx="4" stroke="#b4b2a9" stroke-width="1" stroke-dasharray="4 3"/>
+                  <rect x="24" y="24" width="42" height="42" rx="3" stroke="#378add" stroke-width="1.5"/>
+                  <line x1="10" y1="10" x2="24" y2="24" stroke="#378add" stroke-width="1"/>
+                  <line x1="80" y1="10" x2="66" y2="24" stroke="#378add" stroke-width="1"/>
+                  <line x1="10" y1="80" x2="24" y2="66" stroke="#378add" stroke-width="1"/>
+                  <line x1="80" y1="80" x2="66" y2="66" stroke="#378add" stroke-width="1"/>
+                  <circle cx="45" cy="45" r="6" stroke="#1d9e75" stroke-width="1.5"/>
+                  <line x1="45" y1="30" x2="45" y2="38" stroke="#1d9e75" stroke-width="1"/>
+                  <line x1="45" y1="52" x2="45" y2="60" stroke="#1d9e75" stroke-width="1"/>
+                  <line x1="30" y1="45" x2="38" y2="45" stroke="#1d9e75" stroke-width="1"/>
+                  <line x1="52" y1="45" x2="60" y2="45" stroke="#1d9e75" stroke-width="1"/>
+                </svg>
+                <div style="font-size:10px;color:#5f5e5a;text-align:center;">Point camera at machine<br>to begin AR scan</div>
+                <div class="ar-label">Machine detected — CNC Lathe 04</div>
+              </div>
+              <button class="wf-btn primary" onclick="goTo(3)">View AR overlay</button>
+              <div class="muted center">3D model loaded · 12 sensors active</div>
+            </div>
+          </div>
+
+          <!-- Screen 3: AR Overlay -->
+          <div class="screen" id="s3">
+            <div class="screen-bar">
+              <span class="back-btn" onclick="goTo(2)">← Back</span>
+              AR Overlay — CNC Lathe 04
+            </div>
+            <div class="screen-body">
+              <div class="ar-viewport" style="min-height:130px;">
+                <svg width="150" height="100" viewBox="0 0 150 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="15" y="25" width="120" height="55" rx="6" stroke="#b4b2a9" stroke-width="1" stroke-dasharray="3 2"/>
+                  <rect x="28" y="34" width="36" height="26" rx="3" fill="#e6f1fb" stroke="#378add" stroke-width="1"/>
+                  <text x="46" y="49" text-anchor="middle" font-size="8" fill="#0c447c" font-family="sans-serif">Motor</text>
+                  <rect x="76" y="34" width="46" height="26" rx="3" fill="#faeeda" stroke="#ba7517" stroke-width="1"/>
+                  <text x="99" y="46" text-anchor="middle" font-size="8" fill="#633806" font-family="sans-serif">Bearing</text>
+                  <text x="99" y="56" text-anchor="middle" font-size="7" fill="#854f0b" font-family="sans-serif">! Warning</text>
+                  <line x1="110" y1="34" x2="122" y2="18" stroke="#ba7517" stroke-width="1" stroke-dasharray="2 1"/>
+                  <rect x="118" y="10" width="26" height="12" rx="2" fill="#faeeda" stroke="#ba7517" stroke-width="0.5"/>
+                  <text x="131" y="18" text-anchor="middle" font-size="7" fill="#633806" font-family="sans-serif">87°C</text>
+                </svg>
+                <div class="ar-label">Tap a component to inspect</div>
+              </div>
+              <div class="wf-label">Live sensor readings</div>
+              <div class="sensor-row"><span class="sensor-name">Motor temp</span><span class="sensor-val val-ok">62°C — Normal</span></div>
+              <div class="sensor-row"><span class="sensor-name">Bearing temp</span><span class="sensor-val val-warn">87°C — Warning</span></div>
+              <div class="sensor-row"><span class="sensor-name">Vibration</span><span class="sensor-val val-bad">4.2g — Critical</span></div>
+              <div class="alert-box alert-warn">AI prediction: Bearing failure likely in 3–5 days. Schedule replacement.</div>
+              <button class="wf-btn primary" onclick="goTo(4)">Call expert for guidance</button>
+            </div>
+          </div>
+
+          <!-- Screen 4: Expert Network -->
+          <div class="screen" id="s4">
+            <div class="screen-bar">
+              <span class="back-btn" onclick="goTo(3)">← Back</span>
+              Expert network
+            </div>
+            <div class="screen-body">
+              <div class="wf-label">Available now</div>
+              <div class="wf-card" onclick="goTo(5)" style="display:flex;align-items:center;gap:8px;padding:10px;">
+                <div class="expert-avatar">RK</div>
+                <div class="expert-info">
+                  <div class="expert-name">Rajesh Kumar</div>
+                  <div class="expert-spec">CNC & hydraulic systems · 18 yrs</div>
+                </div>
+                <span class="avail-badge">Online</span>
+              </div>
+              <div class="wf-card" style="display:flex;align-items:center;gap:8px;padding:10px;opacity:0.65;cursor:default;">
+                <div class="expert-avatar green">SP</div>
+                <div class="expert-info">
+                  <div class="expert-name">Sunita Patil</div>
+                  <div class="expert-spec">Electrical & motor systems · 12 yrs</div>
+                </div>
+                <span class="busy-badge">In call</span>
+              </div>
+              <hr class="wf-divider">
+              <div class="wf-label">Session info</div>
+              <div style="font-size:11px;color:#5f5e5a;">Rate: ₹2,000 per session · Avg. duration: 22 min</div>
+              <button class="wf-btn primary" onclick="goTo(5)">Connect with Rajesh Kumar</button>
+            </div>
+          </div>
+
+          <!-- Screen 5: Live Expert Call -->
+          <div class="screen" id="s5">
+            <div class="screen-bar">
+              <span class="back-btn" onclick="goTo(4)">← Back</span>
+              Live session
+            </div>
+            <div class="screen-body" style="gap:8px;">
+              <div class="call-avatar">RK</div>
+              <div class="call-name">Rajesh Kumar</div>
+              <div class="call-status">Connected · 00:03:21</div>
+              <div class="annotation-box">"Replace bearing on shaft 2 — use SKF 6205. Torque to 12 Nm."</div>
+              <div class="ar-viewport active-border" style="min-height:80px;">
+                <div style="font-size:10px;color:#5f5e5a;">Expert sees your AR view</div>
+                <div class="ar-label">Live AR share active</div>
+              </div>
+              <div class="call-actions">
+                <div class="call-btn" title="Mute">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="5" y="1" width="6" height="9" rx="3" stroke="#5f5e5a" stroke-width="1.2"/><path d="M2 8c0 3.3 2.7 6 6 6s6-2.7 6-6" stroke="#5f5e5a" stroke-width="1.2" fill="none"/><line x1="8" y1="14" x2="8" y2="16" stroke="#5f5e5a" stroke-width="1.2"/></svg>
+                </div>
+                <div class="call-btn" title="Camera">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="4" width="10" height="8" rx="2" stroke="#5f5e5a" stroke-width="1.2"/><path d="M11 7l4-2v6l-4-2V7z" stroke="#5f5e5a" stroke-width="1.2" fill="none"/></svg>
+                </div>
+                <div class="call-btn end" onclick="goTo(1)" title="End call">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M1 10c1-4 4-6 7-6s6 2 7 6l-3 1c-.5-2-1.5-3-4-3s-3.5 1-4 3L1 10z" stroke="#a32d2d" stroke-width="1.2" fill="none"/></svg>
+                </div>
+              </div>
+              <div class="muted center">Session logged · ₹2,000 billed on end</div>
+            </div>
+          </div>
+
+        </div><!-- /phone-screen -->
+      </div><!-- /phone-frame -->
+
+      <div class="screen-nav" id="nav-dots">
+        <div class="nav-dot active" onclick="goTo(0)" title="Login"></div>
+        <div class="nav-dot" onclick="goTo(1)" title="Dashboard"></div>
+        <div class="nav-dot" onclick="goTo(2)" title="AR Scanner"></div>
+        <div class="nav-dot" onclick="goTo(3)" title="AR Overlay"></div>
+        <div class="nav-dot" onclick="goTo(4)" title="Expert Network"></div>
+        <div class="nav-dot" onclick="goTo(5)" title="Live Session"></div>
+      </div>
+      <div class="screen-label-text" id="screen-label">Screen 1 of 6 — Login</div>
+
+    </div><!-- /phone-outer -->
+
+    <!-- ── Flow panel ── -->
+    <div class="flow-panel">
+      <div class="flow-title">App flow — how each screen solves the problem</div>
+
+      <div class="flow-step">
+        <div class="flow-num active" id="fn0">1</div>
+        <div class="flow-text">
+          <div class="flow-label">Login</div>
+          <div class="flow-sub">Technician logs in with secure factory credentials</div>
+        </div>
+      </div>
+      <div class="flow-connector"></div>
+
+      <div class="flow-step">
+        <div class="flow-num idle" id="fn1">2</div>
+        <div class="flow-text">
+          <div class="flow-label">Dashboard</div>
+          <div class="flow-sub">Live machine status — no manual walkaround needed</div>
+        </div>
+      </div>
+      <div class="flow-connector"></div>
+
+      <div class="flow-step">
+        <div class="flow-num idle" id="fn2">3</div>
+        <div class="flow-text">
+          <div class="flow-label">AR scan</div>
+          <div class="flow-sub">Points phone at machine — 3D model loads automatically</div>
+        </div>
+      </div>
+      <div class="flow-connector"></div>
+
+      <div class="flow-step">
+        <div class="flow-num idle" id="fn3">4</div>
+        <div class="flow-text">
+          <div class="flow-label">AR overlay + AI diagnosis</div>
+          <div class="flow-sub">Sensor data visible in AR · AI flags the fault location</div>
+        </div>
+      </div>
+      <div class="flow-connector"></div>
+
+      <div class="flow-step">
+        <div class="flow-num idle" id="fn4">5</div>
+        <div class="flow-text">
+          <div class="flow-label">Expert selection</div>
+          <div class="flow-sub">Picks an available domain expert for live guidance</div>
+        </div>
+      </div>
+      <div class="flow-connector"></div>
+
+      <div class="flow-step">
+        <div class="flow-num idle" id="fn5">6</div>
+        <div class="flow-text">
+          <div class="flow-label">Live AR expert call</div>
+          <div class="flow-sub">Expert sees through AR view and annotates the fix live</div>
+        </div>
+      </div>
+    </div><!-- /flow-panel -->
+
+  </div><!-- /proto-wrap -->
+
+  <script>
+    const labels = ['Login','Dashboard','AR Scanner','AR Overlay + AI','Expert Network','Live Expert Call'];
+    let current = 0;
+
+    function goTo(n) {
+      document.getElementById('s' + current).classList.remove('active');
+      document.getElementById('s' + n).classList.add('active');
+
+      const dots = document.querySelectorAll('.nav-dot');
+      dots[current].classList.remove('active');
+      dots[n].classList.add('active');
+
+      const fnodes = document.querySelectorAll('.flow-num');
+      fnodes[current].classList.remove('active');
+      fnodes[current].classList.add(current < n ? 'done' : 'idle');
+      fnodes[n].classList.remove('idle', 'done');
+      fnodes[n].classList.add('active');
+
+      current = n;
+      document.getElementById('screen-label').textContent =
+        'Screen ' + (n + 1) + ' of 6 — ' + labels[n];
+    }
+  </script>
+
+</body>
+</html>
