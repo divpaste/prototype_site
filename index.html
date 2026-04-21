@@ -200,6 +200,7 @@ html,body{width:100%;height:100%;background:var(--bg);font-family:var(--font);co
 .proc-step{font-size:11px;font-family:var(--mono);color:var(--hint);display:flex;align-items:center;gap:8px}
 .proc-step.done{color:var(--ok)}
 .proc-step.active{color:var(--cyan)}
+@keyframes criticalpulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.4)}50%{box-shadow:0 0 0 6px rgba(239,68,68,0)}}
 
 /* ══════════════════════════════
    4. DIAGNOSIS
@@ -697,7 +698,6 @@ html,body{width:100%;height:100%;background:var(--bg);font-family:var(--font);co
         <div class="diag-tag tag-ok" style="bottom:28%;left:20%" onclick="highlightComp('gearbox')">
           <div class="dt-label">Gearbox</div><div class="dt-val">Normal</div>
         </div>
-        @keyframes criticalpulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.4)}50%{box-shadow:0 0 0 6px rgba(239,68,68,0)}}
       </div>
     </div>
     <div class="diag-right">
@@ -1008,12 +1008,95 @@ function initAR(){
   canvas.height = wrap.offsetHeight;
   const ctx = canvas.getContext('2d');
   const W=canvas.width, H=canvas.height, CX=W/2, CY=H/2;
-  let aY=0.4, aX=-0.18, t=0, drag=false, lx=0, ly=0;
-  canvas.onmousedown=e=>{drag=true;lx=e.clientX;ly=e.clientY};
-  canvas.onmousemove=e=>{if(!drag)return;aY+=(e.clientX-lx)*0.012;aX+=(e.clientY-ly)*0.008;aX=Math.max(-0.6,Math.min(0.6,aX));lx=e.clientX;ly=e.clientY};
-  canvas.onmouseup=()=>drag=false;
-  canvas.onmouseleave=()=>drag=false;
-  function proj(x,y,z){const cY=Math.cos(aY),sY=Math.sin(aY),cX=Math.cos(aX),sX=Math.sin(aX);let rx=x*cY-z*sY,rz=x*sY+z*cY,ry=y*cX-rz*sX;rz=y*sX+rz*cX;const f=500,s=f/(f+rz+200);return{sx:CX+rx*s,sy:CY+ry*s,sc:s,z:rz}}
+  let aY=0.4, aX=-0.18, t=0;
+  // pan & zoom state
+  let zoom=1, panX=0, panY=0;
+  // mouse drag: right-button or shift+drag = pan; left = rotate
+  let drag=false, panning=false, lx=0, ly=0;
+  // touch state
+  let touches={}, pinchDist0=null, pinchPan0=null;
+
+  canvas.style.cursor='grab';
+
+  // ── Mouse events ──
+  canvas.addEventListener('mousedown',e=>{
+    e.preventDefault();
+    lx=e.clientX; ly=e.clientY;
+    if(e.button===1||e.button===2||e.shiftKey){panning=true;canvas.style.cursor='move'}
+    else{drag=true;canvas.style.cursor='grabbing'}
+  });
+  canvas.addEventListener('mousemove',e=>{
+    if(!drag&&!panning)return;
+    const dx=e.clientX-lx, dy=e.clientY-ly;
+    if(panning){panX+=dx;panY+=dy}
+    else{aY+=dx*0.012;aX+=dy*0.008;aX=Math.max(-0.6,Math.min(0.6,aX))}
+    lx=e.clientX;ly=e.clientY;
+  });
+  canvas.addEventListener('mouseup',()=>{drag=false;panning=false;canvas.style.cursor='grab'});
+  canvas.addEventListener('mouseleave',()=>{drag=false;panning=false;canvas.style.cursor='grab'});
+  canvas.addEventListener('contextmenu',e=>e.preventDefault());
+
+  // ── Scroll to zoom ──
+  canvas.addEventListener('wheel',e=>{
+    e.preventDefault();
+    const factor=e.deltaY<0?1.08:0.93;
+    // zoom toward cursor
+    const rect=canvas.getBoundingClientRect();
+    const mx=e.clientX-rect.left, my=e.clientY-rect.top;
+    panX=(panX-mx)*factor+mx;
+    panY=(panY-my)*factor+my;
+    zoom=Math.max(0.25,Math.min(5,zoom*factor));
+  },{passive:false});
+
+  // ── Touch events (pinch-zoom + pan) ──
+  function getTouchDist(t1,t2){return Math.hypot(t2.clientX-t1.clientX,t2.clientY-t1.clientY)}
+  function getTouchMid(t1,t2){return{x:(t1.clientX+t2.clientX)/2,y:(t1.clientY+t2.clientY)/2}}
+  canvas.addEventListener('touchstart',e=>{
+    e.preventDefault();
+    Array.from(e.changedTouches).forEach(t=>{touches[t.identifier]=t});
+    const ids=Object.keys(touches);
+    if(ids.length===2){
+      const [a,b]=[touches[ids[0]],touches[ids[1]]];
+      pinchDist0=getTouchDist(a,b);
+      pinchPan0=getTouchMid(a,b);
+    }
+  },{passive:false});
+  canvas.addEventListener('touchmove',e=>{
+    e.preventDefault();
+    Array.from(e.changedTouches).forEach(t=>{touches[t.identifier]=t});
+    const ids=Object.keys(touches);
+    if(ids.length===1){
+      const t=touches[ids[0]];
+      const prev=e.changedTouches[0];
+      // single finger = rotate
+      if(prev._lx!=null){aY+=(prev.clientX-prev._lx)*0.012;aX+=(prev.clientY-prev._ly)*0.008;aX=Math.max(-0.6,Math.min(0.6,aX))}
+      prev._lx=prev.clientX;prev._ly=prev.clientY;
+    } else if(ids.length>=2){
+      const [a,b]=[touches[ids[0]],touches[ids[1]]];
+      const dist=getTouchDist(a,b);
+      const mid=getTouchMid(a,b);
+      if(pinchDist0){
+        const factor=dist/pinchDist0;
+        const rect=canvas.getBoundingClientRect();
+        const mx=mid.x-rect.left, my=mid.y-rect.top;
+        panX=(panX-mx)*factor+mx+(mid.x-pinchPan0.x);
+        panY=(panY-my)*factor+my+(mid.y-pinchPan0.y);
+        zoom=Math.max(0.25,Math.min(5,zoom*factor));
+      }
+      pinchDist0=dist; pinchPan0=mid;
+    }
+  },{passive:false});
+  canvas.addEventListener('touchend',e=>{
+    Array.from(e.changedTouches).forEach(t=>{delete touches[t.identifier]});
+    if(Object.keys(touches).length<2){pinchDist0=null;pinchPan0=null}
+  },{passive:false});
+
+  function proj(x,y,z){
+    const cY=Math.cos(aY),sY=Math.sin(aY),cX=Math.cos(aX),sX=Math.sin(aX);
+    let rx=x*cY-z*sY,rz=x*sY+z*cY,ry=y*cX-rz*sX;rz=y*sX+rz*cX;
+    const f=500,s=f/(f+rz+200)*zoom;
+    return{sx:CX*zoom+panX+rx*s,sy:CY*zoom+panY+ry*s,sc:s,z:rz}
+  }
   function dEdge(pts,c,lw,a){ctx.save();ctx.globalAlpha=a;ctx.strokeStyle=c;ctx.lineWidth=lw;ctx.beginPath();pts.forEach((p,i)=>{const r=proj(p[0],p[1],p[2]);i===0?ctx.moveTo(r.sx,r.sy):ctx.lineTo(r.sx,r.sy)});ctx.stroke();ctx.restore()}
   function dFace(pts,c,a){ctx.save();ctx.globalAlpha=a;ctx.fillStyle=c;ctx.beginPath();pts.forEach((p,i)=>{const r=proj(p[0],p[1],p[2]);i===0?ctx.moveTo(r.sx,r.sy):ctx.lineTo(r.sx,r.sy)});ctx.closePath();ctx.fill();ctx.restore()}
   function bEdges(x,y,z,w,h,d){const x2=x+w,y2=y+h,z2=z+d;return[[[x,y,z],[x2,y,z]],[[x2,y,z],[x2,y2,z]],[[x2,y2,z],[x,y2,z]],[[x,y2,z],[x,y,z]],[[x,y,z2],[x2,y,z2]],[[x2,y,z2],[x2,y2,z2]],[[x2,y2,z2],[x,y2,z2]],[[x,y2,z2],[x,y,z2]],[[x,y,z],[x,y,z2]],[[x2,y,z],[x2,y,z2]],[[x2,y2,z],[x2,y2,z2]],[[x,y2,z],[x,y,z2]]]}
@@ -1049,7 +1132,9 @@ function initAR(){
     ctx.save();ctx.globalAlpha=0.85;
     [{p:proj(-80,-60,20),text:'62°C',color:'#34d399',bg:'rgba(10,30,20,0.92)'},{p:proj(-55,-55,20),text:'87°C ▲',color:'#f59e0b',bg:'rgba(30,20,5,0.92)'},{p:proj(55,-35,-45),text:'4.2g !!',color:'#ef4444',bg:'rgba(30,5,5,0.92)'}].forEach(ind=>{const bw=56,bh=18;ctx.fillStyle=ind.bg;ctx.beginPath();ctx.roundRect(ind.p.sx-bw/2,ind.p.sy-bh/2,bw,bh,4);ctx.fill();ctx.font='500 11px IBM Plex Mono,monospace';ctx.fillStyle=ind.color;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(ind.text,ind.p.sx,ind.p.sy)});
     ctx.restore();
-    t+=0.016;if(!drag)aY+=0.005;
+    // zoom hint (fades after 3 s)
+    if(t<3){const alpha=Math.max(0,1-t/3)*0.6;ctx.save();ctx.globalAlpha=alpha;ctx.fillStyle='rgba(10,20,40,0.85)';ctx.beginPath();ctx.roundRect(W/2-110,H-52,220,28,7);ctx.fill();ctx.fillStyle='#4a6080';ctx.font='11px IBM Plex Mono,monospace';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('Scroll to zoom · Drag to rotate · Shift+drag to pan',W/2,H-38);ctx.restore()}
+    t+=0.016;if(!drag&&!panning)aY+=0.005;
     arAnimId=requestAnimationFrame(frame);
   }
   if(arAnimId) cancelAnimationFrame(arAnimId);
@@ -1081,11 +1166,23 @@ function initDiagCanvas(){
   canvas.height=wrap.offsetHeight;
   const ctx=canvas.getContext('2d');
   const W=canvas.width,H=canvas.height,CX=W/2,CY=H/2;
-  let aY=0.4,aX=-0.18,t=0,drag=false,lx=0,ly=0;
-  canvas.onmousedown=e=>{drag=true;lx=e.clientX;ly=e.clientY};
-  canvas.onmousemove=e=>{if(!drag)return;aY+=(e.clientX-lx)*0.012;aX+=(e.clientY-ly)*0.008;aX=Math.max(-0.6,Math.min(0.6,aX));lx=e.clientX;ly=e.clientY};
-  canvas.onmouseup=()=>drag=false;canvas.onmouseleave=()=>drag=false;
-  function proj(x,y,z){const cY=Math.cos(aY),sY=Math.sin(aY),cX=Math.cos(aX),sX=Math.sin(aX);let rx=x*cY-z*sY,rz=x*sY+z*cY,ry=y*cX-rz*sX;rz=y*sX+rz*cX;const f=500,s=f/(f+rz+200);return{sx:CX+rx*s,sy:CY+ry*s,sc:s,z:rz}}
+  let aY=0.4,aX=-0.18,t=0;
+  let zoom=1,panX=0,panY=0;
+  let drag=false,panning=false,lx=0,ly=0;
+  let touches={},pinchDist0=null,pinchPan0=null;
+  canvas.style.cursor='grab';
+  canvas.addEventListener('mousedown',e=>{e.preventDefault();lx=e.clientX;ly=e.clientY;if(e.button===1||e.button===2||e.shiftKey){panning=true;canvas.style.cursor='move'}else{drag=true;canvas.style.cursor='grabbing'}});
+  canvas.addEventListener('mousemove',e=>{if(!drag&&!panning)return;const dx=e.clientX-lx,dy=e.clientY-ly;if(panning){panX+=dx;panY+=dy}else{aY+=dx*0.012;aX+=dy*0.008;aX=Math.max(-0.6,Math.min(0.6,aX))}lx=e.clientX;ly=e.clientY});
+  canvas.addEventListener('mouseup',()=>{drag=false;panning=false;canvas.style.cursor='grab'});
+  canvas.addEventListener('mouseleave',()=>{drag=false;panning=false;canvas.style.cursor='grab'});
+  canvas.addEventListener('contextmenu',e=>e.preventDefault());
+  canvas.addEventListener('wheel',e=>{e.preventDefault();const factor=e.deltaY<0?1.08:0.93;const rect=canvas.getBoundingClientRect();const mx=e.clientX-rect.left,my=e.clientY-rect.top;panX=(panX-mx)*factor+mx;panY=(panY-my)*factor+my;zoom=Math.max(0.25,Math.min(5,zoom*factor))},{passive:false});
+  function getTouchDist(a,b){return Math.hypot(b.clientX-a.clientX,b.clientY-a.clientY)}
+  function getTouchMid(a,b){return{x:(a.clientX+b.clientX)/2,y:(a.clientY+b.clientY)/2}}
+  canvas.addEventListener('touchstart',e=>{e.preventDefault();Array.from(e.changedTouches).forEach(t=>{touches[t.identifier]=t});const ids=Object.keys(touches);if(ids.length===2){const[a,b]=[touches[ids[0]],touches[ids[1]]];pinchDist0=getTouchDist(a,b);pinchPan0=getTouchMid(a,b)}},{passive:false});
+  canvas.addEventListener('touchmove',e=>{e.preventDefault();Array.from(e.changedTouches).forEach(t=>{touches[t.identifier]=t});const ids=Object.keys(touches);if(ids.length>=2){const[a,b]=[touches[ids[0]],touches[ids[1]]];const dist=getTouchDist(a,b);const mid=getTouchMid(a,b);if(pinchDist0){const factor=dist/pinchDist0;const rect=canvas.getBoundingClientRect();const mx=mid.x-rect.left,my=mid.y-rect.top;panX=(panX-mx)*factor+mx+(mid.x-pinchPan0.x);panY=(panY-my)*factor+my+(mid.y-pinchPan0.y);zoom=Math.max(0.25,Math.min(5,zoom*factor))}pinchDist0=dist;pinchPan0=mid}},{passive:false});
+  canvas.addEventListener('touchend',e=>{Array.from(e.changedTouches).forEach(t=>{delete touches[t.identifier]});if(Object.keys(touches).length<2){pinchDist0=null;pinchPan0=null}},{passive:false});
+  function proj(x,y,z){const cY=Math.cos(aY),sY=Math.sin(aY),cX=Math.cos(aX),sX=Math.sin(aX);let rx=x*cY-z*sY,rz=x*sY+z*cY,ry=y*cX-rz*sX;rz=y*sX+rz*cX;const f=500,s=f/(f+rz+200)*zoom;return{sx:CX*zoom+panX+rx*s,sy:CY*zoom+panY+ry*s,sc:s,z:rz}}
   function dE(pts,c,lw,a){ctx.save();ctx.globalAlpha=a;ctx.strokeStyle=c;ctx.lineWidth=lw;ctx.beginPath();pts.forEach((p,i)=>{const r=proj(p[0],p[1],p[2]);i===0?ctx.moveTo(r.sx,r.sy):ctx.lineTo(r.sx,r.sy)});ctx.stroke();ctx.restore()}
   function dF(pts,c,a){ctx.save();ctx.globalAlpha=a;ctx.fillStyle=c;ctx.beginPath();pts.forEach((p,i)=>{const r=proj(p[0],p[1],p[2]);i===0?ctx.moveTo(r.sx,r.sy):ctx.lineTo(r.sx,r.sy)});ctx.closePath();ctx.fill();ctx.restore()}
   function bE(x,y,z,w,h,d){const x2=x+w,y2=y+h,z2=z+d;return[[[x,y,z],[x2,y,z]],[[x2,y,z],[x2,y2,z]],[[x2,y2,z],[x,y2,z]],[[x,y2,z],[x,y,z]],[[x,y,z2],[x2,y,z2]],[[x2,y,z2],[x2,y2,z2]],[[x2,y2,z2],[x,y2,z2]],[[x,y2,z2],[x,y,z2]],[[x,y,z],[x,y,z2]],[[x2,y,z],[x2,y,z2]],[[x2,y2,z],[x2,y2,z2]],[[x,y2,z],[x,y,z2]]]}
@@ -1118,7 +1215,7 @@ function initDiagCanvas(){
     // CRIT GLOW
     const gp=proj(55,-25,-45);
     ctx.save();ctx.globalAlpha=0.15*pF;const grad=ctx.createRadialGradient(gp.sx,gp.sy,0,gp.sx,gp.sy,40);grad.addColorStop(0,'#ef4444');grad.addColorStop(1,'transparent');ctx.fillStyle=grad;ctx.beginPath();ctx.arc(gp.sx,gp.sy,40,0,Math.PI*2);ctx.fill();ctx.restore();
-    t+=0.016;if(!drag)aY+=0.004;
+    t+=0.016;if(!drag&&!panning)aY+=0.004;
     diagAnim=requestAnimationFrame(frame);
   }
   frame();
